@@ -6,11 +6,18 @@
 <title>Game Goal</title>
 <link rel="stylesheet" href="common.css">
 <style>
+/* Цвета обводки и полосы берутся из обложки награды и перетекают плавно */
+@property --g1 { syntax: '<color>'; inherits: true; initial-value: #4a6beb; }
+@property --g2 { syntax: '<color>'; inherits: true; initial-value: #ed99db; }
+@property --t1 { syntax: '<color>'; inherits: true; initial-value: #385cf2; }
+@property --t2 { syntax: '<color>'; inherits: true; initial-value: #8f70f2; }
+@property --t3 { syntax: '<color>'; inherits: true; initial-value: #f294d1; }
+:root { transition: --g1 900ms var(--ease-scroll), --g2 900ms var(--ease-scroll), --t1 900ms var(--ease-scroll), --t2 900ms var(--ease-scroll), --t3 900ms var(--ease-scroll); }
 html, body { background: transparent; overflow: hidden; height: 100%; }
 body { padding: 12px 14px 16px; }
 .card {
   height: 100%; border-radius: 26px; cursor: default;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 26px rgba(74, 107, 235, .16);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 26px color-mix(in srgb, var(--g1) 18%, transparent);
 }
 /* Цвет по контуру течёт только при наведении и после изменений: виджет висит всегда, лишняя работа не нужна */
 .card::before { animation-play-state: paused; }
@@ -56,7 +63,7 @@ body { padding: 12px 14px 16px; }
 .meta .price { font-weight: 600; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .buy {
   height: 24px; padding: 0 11px; border: 0; border-radius: 12px; background: var(--tile); color: #fff;
-  font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(80, 90, 240, .35);
+  font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px color-mix(in srgb, var(--t1) 35%, transparent);
   transition: transform var(--t-scroll) var(--ease-scroll);
 }
 .buy:hover { transform: scale(1.06); }
@@ -81,6 +88,13 @@ body { padding: 12px 14px 16px; }
 .st .v.pos { color: var(--plus); }
 .st .v.neg { color: var(--minus); }
 .add-btn { width: 34px; height: 34px; border-radius: 17px; }
+/* Цель на неделю: кольцо рядом с суммой */
+.week .v { display: flex; align-items: center; gap: 6px; }
+.wring { width: 16px; height: 16px; flex: none; transform: rotate(-90deg); }
+.wring circle { fill: none; stroke-width: 3.4; }
+.wring .bg { stroke: rgba(255, 255, 255, .1); }
+.wring .fg { stroke: var(--t3); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 900ms var(--ease-enter), stroke 300ms; }
+.week.done .fg { stroke: var(--plus); }
 .add-btn svg { width: 15px; height: 15px; }
 
 .quick { display: grid; grid-template-columns: minmax(0, 1fr) 34px 34px; gap: 6px; align-items: center; align-self: end; }
@@ -93,6 +107,37 @@ body { padding: 12px 14px 16px; }
 .buyq .cur { position: relative; min-width: 0; }
 .buyq .cur span { position: absolute; right: 14px; top: 9px; font-size: 13px; color: var(--muted); pointer-events: none; }
 .buyq .cur .field { width: 100%; padding-right: 30px; }
+
+/* Компактный вид: обложка, название, сумма и полоса. Обёртки растворяются, элементы встают в одну сетку */
+body.compact { padding: 10px 12px 14px; }
+.compact .in { padding: 10px 12px; grid-template-columns: 72px minmax(0, 1fr) auto; grid-template-rows: 22px 22px 34px; gap: 8px 10px; }
+.compact .top, .compact .info, .compact .ph, .compact .bottom { display: contents; }
+.compact .cover { grid-column: 1; grid-row: 1 / 3; width: 72px; height: 44px; border-radius: 10px; align-self: center; }
+.compact .cover > svg { width: 22px; height: 22px; }
+.compact .sale { left: 3px; top: 3px; height: 16px; padding: 0 5px; font-size: 10px; border-radius: 8px; }
+.compact .badge { right: 3px; bottom: 3px; width: 18px; height: 18px; border-radius: 9px; }
+.compact .badge svg { width: 10px; height: 10px; }
+.compact .head { position: absolute; right: 8px; top: 7px; z-index: 4; height: auto; }
+.compact .head .eyebrow { display: none; }
+.compact .actions { padding: 2px; border-radius: 15px; background: rgba(15, 16, 22, .94); }
+.compact .title { grid-column: 2; grid-row: 1; margin: 0; font-size: 14px; -webkit-line-clamp: 1; align-self: center; }
+.compact .earned { grid-column: 2; grid-row: 2; align-self: center; font-size: 14px; }
+.compact .earned small { font-size: 11px; }
+.compact .pct { grid-column: 3; grid-row: 1; justify-self: end; align-self: center; font-size: 14px; }
+.compact .pct small { display: none; }
+.compact .meta { grid-column: 3; grid-row: 2; margin: 0; justify-self: end; }
+.compact .meta .chip, .compact .meta .price { display: none; }
+.compact .track { grid-column: 1 / 3; grid-row: 3; align-self: center; margin: 0; }
+.compact .st { display: none; }
+.compact #weekSt:not([hidden]) { display: block; grid-column: 3; grid-row: 2; justify-self: end; align-self: center; }
+.compact #weekSt .l { display: none; }
+.compact #weekSt .v { font-size: 12px; }
+.compact .can-buy #weekSt { display: none; }
+.compact .add-btn { grid-column: 3; grid-row: 3; justify-self: end; }
+.compact .quick { grid-column: 1 / -1; grid-row: 3; }
+.compact .in:has(#quick:not([hidden]), #buyForm:not([hidden])) .track { display: none; }
+.compact .banner { top: 7px; }
+.compact .u-title { font-size: 18px; }
 
 /* Баннер достижения: выезжает сверху внутри карточки */
 .banner {
@@ -136,7 +181,7 @@ body { padding: 12px 14px 16px; }
         <span class="sale" id="sale" hidden></span>
         <span class="badge" id="badge" hidden><svg><use id="badgeUse" href="#i-lock"/></svg></span>
       </button>
-      <div style="min-width:0">
+      <div class="info" style="min-width:0">
         <div class="head">
           <span class="eyebrow">Награда</span>
           <div class="actions">
@@ -160,7 +205,8 @@ body { padding: 12px 14px 16px; }
     </div>
 
     <div class="bottom" id="bottom">
-      <div class="st"><div class="l">До цели</div><div class="v num" id="sLeft">—</div></div>
+      <div class="st" id="leftSt"><div class="l">До цели</div><div class="v num" id="sLeft">—</div></div>
+      <div class="st week" id="weekSt" hidden><div class="l" id="weekL">Неделя</div><div class="v num"><svg class="wring" viewBox="0 0 20 20"><circle class="bg" cx="10" cy="10" r="8"/><circle class="fg" id="wFg" cx="10" cy="10" r="8" pathLength="100"/></svg><span id="weekV"></span></div></div>
       <div class="st"><div class="l">Игра съест</div><div class="v num" id="sShare">—</div></div>
       <div class="st"><div class="l">Останется</div><div class="v num" id="sRest">—</div></div>
       <button class="icon-btn add-btn on" id="addBtn" title="Добавить доход"><svg><use href="#i-plus"/></svg></button>
@@ -193,9 +239,17 @@ body { padding: 12px 14px 16px; }
 <script>
 let prevUnlocked = null;
 
+// Цвета из обложки (их считает основной процесс) или фирменные, если выключено
+function applyTint() {
+  const c = state.tint !== false && state.game && state.game.colors, root = document.documentElement.style;
+  for (const k of ['g1', 'g2', 't1', 't2', 't3']) c ? root.setProperty('--' + k, c[k]) : root.removeProperty('--' + k);
+}
+
 function render() {
   const g = state.game, earned = earnedSum(), target = state.target, unlocked = isUnlocked();
   $('#card').classList.toggle('unlocked', unlocked);
+  document.body.classList.toggle('compact', !!state.widget.compact);
+  applyTint();
 
   // Игра
   const img = $('#coverImg');
@@ -218,6 +272,7 @@ function render() {
   const buy = $('#buyBtn');
   buy.hidden = !(g && g.price > 0 && earned >= g.price);
   if (buy.hidden && !$('#buyForm').hidden) closeBuy();
+  $('#card').classList.toggle('can-buy', !buy.hidden);
   $('#pinBtn').classList.toggle('on', state.widget.onTop);
 
   // Прогресс
@@ -248,6 +303,18 @@ function render() {
     rest.title = r < 0 ? 'не хватает на игру' : 'останется после покупки';
     rest.classList.add(r < 0 ? 'neg' : 'pos');
   } else { share.textContent = rest.textContent = '—'; share.title = rest.title = ''; }
+
+  // Неделя: вместо «До цели», когда задана цель на неделю
+  const wg = state.weekGoal > 0, wk = Logic.sumSince(state, Logic.weekStart(Date.now()));
+  $('#weekSt').hidden = !wg; $('#leftSt').hidden = wg;
+  if (wg) {
+    const f = Math.max(0, Math.min(1, wk / state.weekGoal));
+    $('#wFg').style.strokeDashoffset = 100 - f * 100;
+    $('#weekSt').classList.toggle('done', f >= 1);
+    $('#weekL').textContent = `Неделя · из ${nf.format(state.weekGoal)}`;
+    $('#weekV').textContent = money(wk);
+    $('#weekSt').title = `С понедельника ${money(wk)} из ${money(state.weekGoal)}` + (f >= 1 ? ' — цель недели выполнена' : '');
+  }
 
   if (prevUnlocked === false && unlocked) setTimeout(celebrate, 500);
   prevUnlocked = unlocked;
@@ -341,6 +408,7 @@ function nextBanner() {
   }, 2800);
 }
 api.onAchievement(list => list.forEach(a => showBanner('Достижение', a.title, true)));
+api.onBanner((kind, text, sound) => showBanner(kind, text, sound));
 
 /* ---------- Кнопки ---------- */
 $('#pinBtn').onclick = e => { Sfx.tick(); pop(e.currentTarget); api.setOnTop(!state.widget.onTop); };

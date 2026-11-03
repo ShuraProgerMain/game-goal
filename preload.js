@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('api', {
   onWidgetPing: fn => ipcRenderer.on('widget:ping', () => fn()),
   onWidgetQuick: fn => ipcRenderer.on('widget:quick', () => fn()),
   onAchievement: fn => ipcRenderer.on('achievement', (_e, list) => fn(list)),
+  onBanner: fn => ipcRenderer.on('widget:banner', (_e, kind, text, sound) => fn(kind, text, sound)),
+  setCompact: on => ipcRenderer.invoke('widget:compact', on),
   buyGame: paid => ipcRenderer.invoke('game:buy', paid),
   listBackups: () => ipcRenderer.invoke('backups:list'),
   restoreBackup: file => ipcRenderer.invoke('backups:restore', file),

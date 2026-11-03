@@ -224,6 +224,10 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         </label>
       </div>
       <div class="row"><button class="btn small" id="targetFromGame">Цель = цена игры</button></div>
+      <div class="grid2" style="margin-top:14px">
+        <label>Цель на неделю<span class="with-cur"><input class="field num" id="weekGoal" inputmode="decimal" placeholder="не задана"><span class="cur-sym"></span></span></label>
+        <div class="label" style="padding-bottom:10px">Кольцо на виджете, пусто — без цели</div>
+      </div>
     </section>
 
     <section class="sec" id="curSec">
@@ -349,6 +353,18 @@ li:hover .del, .del:focus-visible { opacity: 1; }
       <div class="opt">
         <div><div>Поверх всех окон</div><div class="d">Виджет не прячется за другими окнами. Выключи, чтобы он жил на рабочем столе под окнами.</div></div>
         <label class="switch"><input type="checkbox" id="optTop"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Компактный вид</div><div class="d">Только обложка, название, сумма и полоса прогресса. Переключается и из меню в трее.</div></div>
+        <label class="switch"><input type="checkbox" id="optCompact"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Цвета из обложки</div><div class="d">Обводка и полоса виджета перекрашиваются в цвета игры-награды.</div></div>
+        <label class="switch"><input type="checkbox" id="optTint"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Итоги недели</div><div class="d">В понедельник уведомление: сколько заработал, сколько до цели, лучший заказчик.</div></div>
+        <label class="switch"><input type="checkbox" id="optRecap"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
         <div><div>Быстрый ввод по Ctrl+Alt+G</div><div class="d" id="hotkeyNote">Из любой программы открывает ввод дохода на виджете.</div></div>
@@ -482,6 +498,10 @@ function render() {
   renderShelf();
 
   $('#optTop').checked = state.widget.onTop;
+  $('#optCompact').checked = !!state.widget.compact;
+  $('#optTint').checked = state.tint !== false;
+  $('#optRecap').checked = state.recap !== false;
+  if (document.activeElement !== $('#weekGoal')) $('#weekGoal').value = state.weekGoal || '';
   $('#optSound').checked = state.sound;
   renderPricesInfo();
 }
@@ -516,6 +536,14 @@ $('#target').addEventListener('input', () => {
   }, 400);
 });
 $('#target').addEventListener('blur', () => { if (!(parseNum($('#target').value) > 0)) $('#target').value = state.target; });
+let weekTimer;
+$('#weekGoal').addEventListener('input', () => {
+  clearTimeout(weekTimer);
+  weekTimer = setTimeout(() => {
+    const v = $('#weekGoal').value.trim() ? parseNum($('#weekGoal').value) : 0;
+    if (Number.isFinite(v) && v >= 0) api.setState({ weekGoal: v });
+  }, 400);
+});
 $('#currency').onchange = e => { Sfx.tick(); api.setState({ currency: e.target.value }); };
 $('#targetFromGame').onclick = e => { pop(e.currentTarget); Sfx.confirm(); $('#target').value = state.game.price; api.setState({ target: state.game.price }); };
 
@@ -758,7 +786,9 @@ function renderStats(animate) {
   const week = Logic.sumSince(state, Logic.weekStart(now)), month = Logic.sumSince(state, Logic.monthStart(now));
   const prevWeek = Logic.sumSince(state, Logic.weekStart(now) - Logic.WEEK) - week;
   countTo($('#stWeek'), 'stWeek', week, v => money(v));
-  $('#stWeekSub').textContent = prevWeek > 0 ? `на прошлой неделе ${money(prevWeek)}` : 'с понедельника';
+  $('#stWeekSub').textContent = state.weekGoal > 0
+    ? `цель недели ${money(state.weekGoal)} · ${Math.floor(Logic.sumSince(state, Logic.weekStart(Date.now())) / state.weekGoal * 100)}%`
+    : prevWeek > 0 ? `на прошлой неделе ${money(prevWeek)}` : 'с понедельника';
   countTo($('#stMonth'), 'stMonth', month, v => money(v));
   $('#stMonthSub').textContent = new Date().toLocaleDateString('ru-RU', { month: 'long' });
   countTo($('#stPace'), 'stPace', Math.round(Logic.pace(state, now)), v => money(v));
@@ -853,6 +883,9 @@ async function renderHotkey(h) {
 }
 $('#optHotkey').onchange = async e => { Sfx.tick(); renderHotkey(await api.setHotkey(e.target.checked)); };
 $('#optTop').onchange = e => { Sfx.tick(); api.setOnTop(e.target.checked); };
+$('#optCompact').onchange = e => { Sfx.tick(); api.setCompact(e.target.checked); };
+$('#optTint').onchange = e => { Sfx.tick(); api.setState({ tint: e.target.checked }); };
+$('#optRecap').onchange = e => { Sfx.tick(); api.setState({ recap: e.target.checked }); };
 $('#optAuto').onchange = async e => { Sfx.tick(); e.target.checked = await api.setAutostart(e.target.checked); };
 $('#optSound').onchange = e => { state.sound = e.target.checked; Sfx.tick(); api.setState({ sound: e.target.checked }); };
 $('#showWidget').onclick = e => { pop(e.currentTarget); Sfx.open(); api.showWidget(); };

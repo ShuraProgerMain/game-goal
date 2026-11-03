@@ -7,7 +7,8 @@ const Logic = require('./logic');
 const APP_NAME = 'Game Goal';
 const LEGACY_NAME = 'Копилка на игру';  // прежнее имя: ярлык автозапуска переименовываем
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GameGoal/1.0';
-const WIDGET_W = 440, WIDGET_H = 236;  // карточка 412×208 плюс прозрачные поля под тень
+// Размер окна виджета: карточка плюс прозрачные поля под тень. Компактный вид — только прогресс
+const SIZES = { full: [440, 236], compact: [360, 142] };
 const ICON = path.join(__dirname, 'assets', 'icon.ico');
 const HOTKEY = 'Control+Alt+G';
 const HOUR = 36e5;
@@ -28,7 +29,8 @@ const DEFAULTS = {
   currency: '₽', target: 10000, entries: [], game: null, sound: true,
   wishlist: [], shelf: [], achievements: null, hotkey: true,
   rates: null, salesCheckedAt: 0,
-  widget: { x: null, y: null, onTop: true, visible: true },
+  weekGoal: 0, weekGoalHit: 0, tint: true, recap: true, recapFor: 0,
+  widget: { x: null, y: null, onTop: true, visible: true, compact: false },
 };
 
 let state, widget = null, settings = null, tray = null, quitting = false, hotkeyError = '';
@@ -152,8 +154,117 @@ function broadcast() {
   send(widget, 'state:changed', state); send(settings, 'state:changed', state);
   updateTray();
 }
-// Любое изменение данных: проверить достижения, сохранить, разослать окнам
-function changed() { checkAchievements(); save(); broadcast(); }
+// Любое изменение данных: проверить достижения и цель недели, сохранить, разослать окнам
+function changed() { checkAchievements(); checkWeekGoal(); save(); broadcast(); ensureColors(); }
+const widgetShown = () => widget && !widget.isDestroyed() && widget.isVisible();
+
+/* ---------- Цель на неделю: один баннер в неделю, когда набрана ---------- */
+function checkWeekGoal() {
+  if (!(state.weekGoal > 0)) return;
+  const w = Logic.weekStart(Date.now());
+  if (state.weekGoalHit === w || Logic.sumSince(state, w) < state.weekGoal) return;
+  state.weekGoalHit = w;
+  if (widgetShown()) send(widget, 'widget:banner', 'Цель недели', `${fmt(Logic.sumSince(state, w))} с понедельника`, true);
+  else notify('Цель недели выполнена', `${fmt(Logic.sumSince(state, w))} с понедельника`, 'stats');
+}
+
+/* ---------- Итоги недели: уведомление в первый запуск с понедельника ---------- */
+function weeklyRecap() {
+  const W = Logic.weekStart(Date.now());
+  if (state.recapFor === W) return;
+  state.recapFor = W; save();
+  if (state.recap === false || !state.entries.some(Logic.isIncome)) return;
+  const last = state.entries.filter(e => Logic.isIncome(e) && Date.parse(e.date) >= W - Logic.WEEK && Date.parse(e.date) < W);
+  const sum = last.reduce((a, e) => a + e.amount, 0);
+  const by = new Map();
+  for (const e of last) if (e.client) by.set(e.client, (by.get(e.client) || 0) + e.amount);
+  const best = [...by].sort((a, b) => b[1] - a[1])[0];
+  const fc = Logic.forecast(state);
+  const parts = [sum > 0 ? `+${fmt(sum)} за неделю` : 'На прошлой неделе заказов не было'];
+  if (fc && fc.done) parts.push('цель уже набрана');
+  else if (fc) parts.push(`до цели ${Logic.weeksText(fc.weeks)}`);
+  else parts.push(`до цели ${fmt(Math.max(0, state.target - Logic.balance(state)))}`);
+  if (best && by.size > 1) parts.push(`лучший заказчик — ${best[0]}`);
+  if (state.weekGoal > 0) parts.push(sum >= state.weekGoal ? 'цель недели выполнена' : `цель недели на ${Math.floor(sum / state.weekGoal * 100)}%`);
+  notify('Итоги недели', parts.join(' · '), 'stats');
+}
+
+/* ---------- Цвета из обложки: два ярких оттенка для обводки и полосы виджета ---------- */
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function hslHex(h, s, l) {
+  const f = n => {
+    const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l);
+    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+function paletteFrom(img) {
+  const small = img.resize({ width: 48, quality: 'good' });
+  const { width, height } = small.getSize();
+  const buf = small.toBitmap();  // BGRA
+  const N = 24, bins = Array.from({ length: N }, (_, i) => ({ i, w: 0, r: 0, g: 0, b: 0 }));
+  for (let i = 0; i < width * height * 4; i += 4) {
+    const b = buf[i], g = buf[i + 1], r = buf[i + 2];
+    const [h, sat, l] = rgbToHsl(r, g, b);
+    if (sat < .25 || l < .14 || l > .9) continue;  // серое, чёрное и белое не в счёт
+    const w = sat * (1 - Math.abs(l - .5) * 1.5);
+    const bin = bins[Math.floor(h * N) % N];
+    bin.w += w; bin.r += r * w; bin.g += g * w; bin.b += b * w;
+  }
+  const ranked = bins.filter(x => x.w > 0).sort((a, b) => b.w - a.w);
+  if (!ranked.length || ranked[0].w < width * height * .02) return null;  // почти бесцветная обложка
+  const dist = (a, b) => Math.min(Math.abs(a - b), N - Math.abs(a - b));
+  const a = ranked[0], far = ranked.find(x => dist(x.i, a.i) >= 3 && x.w > a.w * .12);
+  const hsl = x => rgbToHsl(x.r / x.w, x.g / x.w, x.b / x.w);
+  const A = hsl(a), B = far ? hsl(far) : [(A[0] + .1) % 1, A[1], A[2]];
+  const sat = v => Math.max(.6, Math.min(.88, v));
+  let mid = (A[0] + B[0]) / 2;
+  if (Math.abs(A[0] - B[0]) > .5) mid = (mid + .5) % 1;
+  // Яркость подбирается по светлоте, как у фирменных цветов: зелёный и жёлтый на той же
+  // HSL-светлоте выглядят намного ярче синего, и белый текст на них не читается
+  const fit = (h, s, lum) => {
+    let l = .8;
+    while (l > .2 && luminance(hslHex(h, s, l)) > lum) l -= .01;
+    return hslHex(h, s, l);
+  };
+  const sa = sat(A[1]), sb = sat(B[1]);
+  return {
+    g1: fit(A[0], sa, .19), g2: fit(B[0], sb, .42),
+    t1: fit(A[0], sa, .14), t2: fit(mid, (sa + sb) / 2, .24), t3: fit(B[0], sb, .4),
+  };
+}
+function luminance(hex) {
+  const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+  return .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
+}
+let colorsBusy = '';
+async function ensureColors() {
+  const g = state.game;
+  if (!g || !g.image || g.colorsFor === g.image || colorsBusy === g.image) return;
+  const key = colorsBusy = g.image;
+  let colors = null;
+  for (const url of [g.image, g.fallback].filter(Boolean)) {
+    try {
+      const r = await net.fetch(url, { headers: { 'User-Agent': UA } });
+      if (!r.ok) continue;
+      const img = nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer()));
+      if (img.isEmpty()) continue;
+      colors = paletteFrom(img);
+      break;
+    } catch (e) { log(`цвета обложки «${g.title}»`, e); }
+  }
+  colorsBusy = '';
+  if (state.game !== g || g.image !== key) return;  // награду успели сменить
+  g.colors = colors; g.colorsFor = key;
+  save(); broadcast();
+}
 
 /* ---------- Достижения: проверяются после каждого изменения, новые показываются на виджете ---------- */
 function checkAchievements() {
@@ -316,9 +427,24 @@ async function searchNintendo(q) {
 /* ---------- Окна ---------- */
 const prefs = { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true };
 
+const wsize = () => SIZES[state.widget.compact ? 'compact' : 'full'];
+// Переключение вида: если виджет в правой половине экрана, держим на месте правый край
+function setCompact(on) {
+  const [ow] = wsize();
+  state.widget.compact = !!on;
+  const [w, h] = wsize();
+  if (widget && !widget.isDestroyed()) {
+    const [x, y] = widget.getPosition();
+    const wa = screen.getDisplayNearestPoint({ x, y }).workArea;
+    const nx = x + ow / 2 > wa.x + wa.width / 2 ? x + ow - w : x;
+    widget.setBounds({ x: nx, y, width: w, height: h });
+    state.widget.x = nx; state.widget.y = y;
+  }
+  save(); broadcast();
+}
 function defaultWidgetPos() {
   const wa = screen.getPrimaryDisplay().workArea;
-  return { x: wa.x + wa.width - WIDGET_W - 4, y: wa.y + 4 };
+  return { x: wa.x + wa.width - wsize()[0] - 4, y: wa.y + 4 };
 }
 function onScreen(x, y) {
   return screen.getAllDisplays().some(d => {
@@ -331,7 +457,7 @@ function createWidget(show = true) {
   let { x, y, onTop } = state.widget;
   if (x == null || !onScreen(x, y)) ({ x, y } = defaultWidgetPos());
   widget = new BrowserWindow({
-    x, y, width: WIDGET_W, height: WIDGET_H,
+    x, y, width: wsize()[0], height: wsize()[1],
     frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false,
     fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false,
     alwaysOnTop: onTop, title: APP_NAME, icon: ICON,
@@ -430,6 +556,7 @@ function buildMenu() {
     { label: 'Добавить доход…', click: () => openSettings('income') },
     { type: 'separator' },
     { label: 'Поверх всех окон', type: 'checkbox', checked: state.widget.onTop, click: m => setOnTop(m.checked) },
+    { label: 'Компактный вид', type: 'checkbox', checked: !!state.widget.compact, click: m => setCompact(m.checked) },
     { label: 'Запускать вместе с Windows', type: 'checkbox', checked: autostartOn(), click: m => setAutostart(m.checked) },
     { type: 'separator' },
     { label: 'Выход', click: () => { quitting = true; app.quit(); } },
@@ -463,7 +590,7 @@ function runCommand(args, fromSecond) {
 /* ---------- IPC: только ожидаемые команды и данные ---------- */
 ipcMain.handle('state:get', () => state);
 ipcMain.handle('state:set', (_e, patch) => {
-  const allowed = ['currency', 'target', 'entries', 'game', 'sound', 'wishlist', 'shelf'];
+  const allowed = ['currency', 'target', 'entries', 'game', 'sound', 'wishlist', 'shelf', 'weekGoal', 'tint', 'recap'];
   const newGame = patch && 'game' in patch && patch.game && patch.game.url !== state.game?.url;
   const newWish = patch && Array.isArray(patch.wishlist) && patch.wishlist.length > state.wishlist.length;
   for (const k of allowed) if (patch && k in patch) state[k] = patch[k];
@@ -478,18 +605,19 @@ ipcMain.handle('search', async (_e, src, q) => {
   catch (e) { log(`поиск ${src} «${q}»`, e); throw e; }
 });
 ipcMain.handle('widget:onTop', (_e, on) => setOnTop(!!on));
+ipcMain.handle('widget:compact', (_e, on) => setCompact(!!on));
 ipcMain.handle('widget:hide', () => setWidgetVisible(false));
 ipcMain.handle('widget:show', () => setWidgetVisible(true));
 ipcMain.handle('widget:resetPos', () => {
   const { x, y } = defaultWidgetPos();
   setWidgetVisible(true);
-  widget.setBounds({ x, y, width: WIDGET_W, height: WIDGET_H });
+  widget.setBounds({ x, y, width: wsize()[0], height: wsize()[1] });
   state.widget.x = x; state.widget.y = y; save();
 });
 // Перетаскивание виджета вручную: у области drag в Windows пропадает hover
 ipcMain.on('widget:move', (_e, x, y) => {
   if (widget && !widget.isDestroyed() && Number.isFinite(x) && Number.isFinite(y))
-    widget.setBounds({ x: Math.round(x), y: Math.round(y), width: WIDGET_W, height: WIDGET_H });
+    widget.setBounds({ x: Math.round(x), y: Math.round(y), width: wsize()[0], height: wsize()[1] });
 });
 ipcMain.on('widget:moveEnd', () => {
   if (!widget || widget.isDestroyed()) return;
@@ -538,8 +666,9 @@ if (!app.requestSingleInstanceLock()) {
     if (restoredFrom) setTimeout(() => notify('Данные восстановлены из копии',
       `Файл данных был повреждён, взята копия от ${new Date(restoredFrom).toLocaleDateString('ru-RU')}. Повреждённый файл: data.json.broken`, 'widget'), 3000);
     // Сеть — после показа окна: курс ЦБ и скидки раз в 12 часов, условие проверяется раз в час
-    setTimeout(() => { updateRates(); checkSales(); }, 5000);
-    setInterval(() => { updateRates(); checkSales(); backupDaily(); }, HOUR);
+    setTimeout(() => { updateRates(); checkSales(); ensureColors(); }, 5000);
+    setTimeout(weeklyRecap, 15000);
+    setInterval(() => { updateRates(); checkSales(); backupDaily(); weeklyRecap(); }, HOUR);
   }).catch(e => log('запуск', e));
   // Окна прячутся в трей, приложение живёт до «Выход»
   app.on('window-all-closed', () => {});
