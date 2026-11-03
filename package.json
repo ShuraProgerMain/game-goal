@@ -3,6 +3,7 @@
   "version": "1.4.2",
   "description": "Game Goal: виджет прогресса заработка на игру в стиле Nintendo UI",
   "main": "main.js",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "start": "electron ."
