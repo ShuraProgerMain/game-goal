@@ -14,10 +14,8 @@
 @property --t3 { syntax: '<color>'; inherits: true; initial-value: #f294d1; }
 :root { transition: --g1 900ms var(--ease-scroll), --g2 900ms var(--ease-scroll), --t1 900ms var(--ease-scroll), --t2 900ms var(--ease-scroll), --t3 900ms var(--ease-scroll); }
 html, body { background: transparent; overflow: hidden; height: 100%; }
-body { padding: 12px 14px 16px; }
 .card {
   height: 100%; border-radius: 26px; cursor: default;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 26px color-mix(in srgb, var(--g1) 18%, transparent);
 }
 /* Цвет по контуру течёт только при наведении и после изменений: виджет висит всегда, лишняя работа не нужна */
 .card::before { animation-play-state: paused; }
@@ -109,7 +107,6 @@ body { padding: 12px 14px 16px; }
 .buyq .cur .field { width: 100%; padding-right: 30px; }
 
 /* Компактный вид: обложка, название, сумма и полоса. Обёртки растворяются, элементы встают в одну сетку */
-body.compact { padding: 10px 12px 14px; }
 .compact .in { padding: 10px 12px; grid-template-columns: 72px minmax(0, 1fr) auto; grid-template-rows: 22px 22px 34px; gap: 8px 10px; }
 .compact .top, .compact .info, .compact .ph, .compact .bottom { display: contents; }
 .compact .cover { grid-column: 1; grid-row: 1 / 3; width: 72px; height: 44px; border-radius: 10px; align-self: center; }
@@ -430,12 +427,6 @@ $('#card').addEventListener('pointermove', e => {
   api.moveWidget(e.screenX - drag.ox, e.screenY - drag.oy);
 });
 $('#card').addEventListener('pointerup', () => { if (drag && drag.moved) api.moveWidgetEnd(); drag = null; });
-
-/* ---------- Прозрачные поля под тень пропускают клики к тому, что под виджетом ---------- */
-let hit = null;
-function setHit(on) { if (on !== hit) { hit = on; api.setWidgetHit(on); } }
-addEventListener('mousemove', e => { if (!drag) setHit(!!e.target.closest('#card')); });
-document.addEventListener('mouseleave', () => { if (!drag) setHit(false); });
 $('#card').addEventListener('dblclick', e => { if (!e.target.closest('button, input, .unlock')) api.openSettings(); });
 
 /* ---------- Награда открыта: Joy-Con, замах 3:1 ---------- */
