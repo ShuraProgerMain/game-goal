@@ -43,6 +43,7 @@ $Programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
 $MenuLnk = Join-Path $Programs "$AppName.lnk"
 $AutoLnk = Join-Path $Programs "Startup\$AppName.lnk"
 $LegacyLnks = @((Join-Path $Programs "$LegacyName.lnk"), (Join-Path $Programs "Startup\$LegacyName.lnk"))
+$StrayLnk = Join-Path $Programs 'Electron.lnk'  # его создаёт сам Electron, пока в exe имя «Electron»
 $UninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$AppId"
 
 function Step($text) { Write-Host "`n$text" -ForegroundColor Cyan }
@@ -98,6 +99,13 @@ function Write-Cmd([string]$Path, [string]$Text) {
     [IO.File]::WriteAllText($Path, $Text, $oem)
 }
 
+function Remove-StrayShortcut {
+    # только если ярлык ведёт на наш exe: чужой «Electron.lnk» (другой программы) не трогаем
+    if ((Test-Path $StrayLnk) -and (New-Object -ComObject WScript.Shell).CreateShortcut($StrayLnk).TargetPath -eq $Exe) {
+        Remove-Item $StrayLnk -Force
+    }
+}
+
 function New-Shortcut([string]$Path, [string]$Target, [string]$Arguments, [string]$WorkDir, [string]$IconPath, [string]$Description) {
     # WScript.Shell не сохраняет ярлык с кириллицей в имени, если её нет в ANSI-кодировке системы:
     # сохраняем под латинским именем и переименовываем
@@ -111,6 +119,83 @@ function New-Shortcut([string]$Path, [string]$Target, [string]$Arguments, [strin
     $lnk.Save()
     New-Item -ItemType Directory -Force (Split-Path $Path) | Out-Null
     Move-Item $tmp $Path -Force
+}
+
+function Set-ExeStrings([string]$Path, [hashtable]$Strings) {
+    # Переписывает строки в ресурсе версии exe (FileDescription, ProductName…) через UpdateResource.
+    # Ресурс разбирается деревом и собирается заново: длины узлов пересчитываются сами.
+    if (-not ('ExeVersion' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System; using System.Collections.Generic; using System.IO; using System.Runtime.InteropServices; using System.Text;
+public static class ExeVersion {
+  [DllImport("kernel32", SetLastError=true, CharSet=CharSet.Unicode)] static extern IntPtr LoadLibraryEx(string f, IntPtr h, uint fl);
+  [DllImport("kernel32")] static extern bool FreeLibrary(IntPtr h);
+  [DllImport("kernel32", SetLastError=true)] static extern IntPtr FindResourceEx(IntPtr m, IntPtr type, IntPtr name, ushort lang);
+  [DllImport("kernel32")] static extern IntPtr LoadResource(IntPtr m, IntPtr r);
+  [DllImport("kernel32")] static extern IntPtr LockResource(IntPtr r);
+  [DllImport("kernel32")] static extern uint SizeofResource(IntPtr m, IntPtr r);
+  [DllImport("kernel32", SetLastError=true, CharSet=CharSet.Unicode)] static extern IntPtr BeginUpdateResource(string f, bool del);
+  [DllImport("kernel32", SetLastError=true)] static extern bool UpdateResource(IntPtr h, IntPtr type, IntPtr name, ushort lang, byte[] d, uint n);
+  [DllImport("kernel32", SetLastError=true)] static extern bool EndUpdateResource(IntPtr h, bool discard);
+
+  class Node { public string Key; public ushort Type; public byte[] Value; public List<Node> Kids = new List<Node>(); }
+
+  static int Pad(int n) { return (n + 3) & ~3; }
+  static Node Parse(byte[] b, int at) {
+    int len = BitConverter.ToUInt16(b, at), vlen = BitConverter.ToUInt16(b, at + 2);
+    var n = new Node { Type = BitConverter.ToUInt16(b, at + 4) };
+    int p = at + 6, s = p;
+    while (BitConverter.ToUInt16(b, p) != 0) p += 2;
+    n.Key = Encoding.Unicode.GetString(b, s, p - s);
+    p = Pad(p + 2);  // ресурс начинается с нуля, выравнивание от начала буфера
+    int vbytes = n.Type == 1 ? vlen * 2 : vlen;
+    if (vbytes > at + len - p) vbytes = Math.Max(0, at + len - p);
+    n.Value = new byte[vbytes]; Array.Copy(b, p, n.Value, 0, vbytes);
+    p = Pad(p + vbytes);
+    while (p < at + len) { var k = Parse(b, p); n.Kids.Add(k); p += Pad(BitConverter.ToUInt16(b, p)); }
+    return n;
+  }
+  static byte[] Build(Node n) {
+    var m = new MemoryStream(); var w = new BinaryWriter(m);
+    w.Write((ushort)0); w.Write((ushort)(n.Type == 1 ? n.Value.Length / 2 : n.Value.Length)); w.Write(n.Type);
+    w.Write(Encoding.Unicode.GetBytes(n.Key + "\0"));
+    while (m.Length % 4 != 0) w.Write((byte)0);
+    w.Write(n.Value);
+    foreach (var k in n.Kids) { while (m.Length % 4 != 0) w.Write((byte)0); w.Write(Build(k)); }
+    var r = m.ToArray(); BitConverter.GetBytes((ushort)r.Length).CopyTo(r, 0);
+    return r;
+  }
+
+  public static void Set(string path, string[] keys, string[] values) {
+    IntPtr mod = LoadLibraryEx(path, IntPtr.Zero, 0x2 | 0x20);  // как данные, без запуска кода
+    if (mod == IntPtr.Zero) throw new Exception("не открыть " + path);
+    byte[] data; ushort lang = 0;
+    try {
+      IntPtr res = IntPtr.Zero;
+      foreach (ushort l in new ushort[] { 1033, 0, 1049 }) { res = FindResourceEx(mod, (IntPtr)16, (IntPtr)1, l); if (res != IntPtr.Zero) { lang = l; break; } }
+      if (res == IntPtr.Zero) throw new Exception("в exe нет ресурса версии");
+      data = new byte[SizeofResource(mod, res)];
+      Marshal.Copy(LockResource(LoadResource(mod, res)), data, 0, data.Length);
+    } finally { FreeLibrary(mod); }
+    var root = Parse(data, 0);
+    foreach (var sfi in root.Kids) if (sfi.Key == "StringFileInfo")
+      foreach (var table in sfi.Kids) {
+        for (int i = 0; i < keys.Length; i++) {
+          var s = table.Kids.Find(k => k.Key == keys[i]);
+          if (s == null) { s = new Node { Key = keys[i], Type = 1 }; table.Kids.Add(s); }
+          s.Value = Encoding.Unicode.GetBytes(values[i] + "\0");
+        }
+      }
+    var outData = Build(root);
+    IntPtr h = BeginUpdateResource(path, false);
+    if (h == IntPtr.Zero) throw new Exception("exe занят или защищён от записи: " + path);
+    if (!UpdateResource(h, (IntPtr)16, (IntPtr)1, lang, outData, (uint)outData.Length)) { EndUpdateResource(h, true); throw new Exception("UpdateResource: " + Marshal.GetLastWin32Error()); }
+    if (!EndUpdateResource(h, false)) throw new Exception("EndUpdateResource: " + Marshal.GetLastWin32Error());
+  }
+}
+'@
+    }
+    [ExeVersion]::Set($Path, [string[]]$Strings.Keys, [string[]]$Strings.Values)
 }
 
 # ---------- запуск изнутри упакованного приложения ----------
@@ -142,6 +227,7 @@ if ($Uninstall) {
     $App = (Get-ItemProperty $UninstallKey -ErrorAction SilentlyContinue).InstallLocation
     Stop-App
     Remove-Item (@($MenuLnk, $AutoLnk) + $LegacyLnks) -Force -ErrorAction SilentlyContinue
+    Remove-StrayShortcut
     Remove-Item $UninstallKey -Recurse -Force -ErrorAction SilentlyContinue
     Edit-UserPath -Remove $Data
     Remove-Item $Data -Recurse -Force -ErrorAction SilentlyContinue
@@ -208,6 +294,19 @@ if ($have -eq $ElectronVersion) {
     if (-not (Test-Path $Exe)) { throw "рантайм не собрался: нет $Exe" }
     Ok $Runtime
 }
+# Имя программы внутри exe. Иначе «Пуск» и поиск показывают её как «Electron» (имя берётся из exe,
+# а не из ярлыка), и по названию её не найти.
+if ((Get-Item $Exe).VersionInfo.FileDescription -ne $AppName) {
+    Stop-App
+    Set-ExeStrings $Exe @{ FileDescription = $AppName; ProductName = $AppName; CompanyName = $Publisher; OriginalFilename = "$AppId.exe" }
+    if ((Get-Item $Exe).VersionInfo.FileDescription -ne $AppName) { throw "не удалось записать имя программы в $Exe" }
+    # Проводник запомнил старое имя «Electron» — забыть
+    $mui = 'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache'
+    foreach ($p in 'FriendlyAppName', 'ApplicationCompany') {
+        Remove-ItemProperty $mui "$Exe.$p" -ErrorAction SilentlyContinue
+    }
+    Ok "имя «$AppName» записано в $AppId.exe"
+}
 
 # ---------- команда, ярлыки, автозапуск, удаление ----------
 
@@ -231,6 +330,7 @@ New-Shortcut $MenuLnk $Exe "`"$App`"" $App $iconPath 'Виджет прогре�
 $autostart = $firstInstall -or (Test-Path $AutoLnk) -or (Test-Path $LegacyLnks[1])
 # ярлыки и команда под прежним именем больше не нужны
 Remove-Item ($LegacyLnks + (Join-Path $Data "$LegacyCommand.cmd")) -Force -ErrorAction SilentlyContinue
+Remove-StrayShortcut
 if ($autostart) {
     New-Shortcut $AutoLnk $Exe "`"$App`" --background" $App $iconPath 'Виджет прогресса заработка на игру'
 }

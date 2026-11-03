@@ -12,6 +12,7 @@ const SIZES = { full: [440, 236], compact: [360, 142] };
 const ICON = path.join(__dirname, 'assets', 'icon.ico');
 const HOTKEY = 'Control+Alt+G';
 const AUMID = 'ShuraProger.GameGoal';
+const TOAST_CLSID = '{F4047826-9149-4FED-9EF2-050BB44EB7F9}';  // постоянный: Electron записывает его в ярлык
 const HOUR = 36e5;
 
 // Данные пользователя — в %APPDATA%\game-goal: переживают обновление и переустановку программы.
@@ -503,14 +504,23 @@ function openSettings(tab) {
 
 /* ---------- Уведомления Windows видны, только если у ярлыка в «Пуск» тот же AppUserModelID ----------
    ID обязательно с точкой (Компания.Программа): ярлык с ID без точки, например «GameGoal»,
-   Windows молча прячет из «Пуска» и поиска */
+   Windows молча прячет из «Пуска» и поиска.
+   При первом уведомлении Electron ищет ярлык «<ProductName из exe>.lnk» с этим ID, а не найдя — создаёт
+   свой, без аргументов. Поэтому установщик пишет в exe имя «Game Goal», а здесь ярлыку ставятся ID и CLSID */
 function linkNotifications() {
   if (PROFILE) return;
-  const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${APP_NAME}.lnk`);
+  const dir = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+  const lnk = path.join(dir, `${APP_NAME}.lnk`);
   try {
-    if (fs.existsSync(lnk) && shell.readShortcutLink(lnk).appUserModelId !== AUMID)
-      shell.writeShortcutLink(lnk, 'update', { appUserModelId: AUMID });
+    const l = fs.existsSync(lnk) && shell.readShortcutLink(lnk);
+    if (l && (l.appUserModelId !== AUMID || (l.toastActivatorClsid || '').toUpperCase() !== TOAST_CLSID))
+      shell.writeShortcutLink(lnk, 'update', { appUserModelId: AUMID, toastActivatorClsid: TOAST_CLSID });
   } catch (e) { log('ярлык для уведомлений', e); }
+  // ярлык, который Electron создал сам, пока в exe было имя «Electron»: из-за него программа звалась так в «Пуске»
+  const stray = path.join(dir, 'Electron.lnk');
+  try {
+    if (fs.existsSync(stray) && path.resolve(shell.readShortcutLink(stray).target) === path.resolve(process.execPath)) fs.unlinkSync(stray);
+  } catch (e) { log('лишний ярлык Electron', e); }
 }
 
 /* ---------- Автозапуск: ярлык в «Автозагрузке» с флагом --background (его же ставит установщик) ---------- */
@@ -655,6 +665,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', (_e, argv, cwd) => runCommand(parseArgs(argv, cwd), true));
   app.whenReady().then(() => {
     app.setAppUserModelId(AUMID);
+    app.setToastActivatorCLSID(TOAST_CLSID);
     state = load();
     migrateAutostart();
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
