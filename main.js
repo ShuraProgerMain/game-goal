@@ -11,6 +11,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GameGoal/1.0';
 const SIZES = { full: [440, 236], compact: [360, 142] };
 const ICON = path.join(__dirname, 'assets', 'icon.ico');
 const HOTKEY = 'Control+Alt+G';
+const AUMID = 'ShuraProger.GameGoal';
 const HOUR = 36e5;
 
 // Данные пользователя — в %APPDATA%\game-goal: переживают обновление и переустановку программы.
@@ -500,13 +501,15 @@ function openSettings(tab) {
   settings.on('closed', () => { settings = null; });
 }
 
-/* ---------- Уведомления Windows видны, только если у ярлыка в «Пуск» тот же AppUserModelID ---------- */
+/* ---------- Уведомления Windows видны, только если у ярлыка в «Пуск» тот же AppUserModelID ----------
+   ID обязательно с точкой (Компания.Программа): ярлык с ID без точки, например «GameGoal»,
+   Windows молча прячет из «Пуска» и поиска */
 function linkNotifications() {
   if (PROFILE) return;
   const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${APP_NAME}.lnk`);
   try {
-    if (fs.existsSync(lnk) && shell.readShortcutLink(lnk).appUserModelId !== 'GameGoal')
-      shell.writeShortcutLink(lnk, 'update', { appUserModelId: 'GameGoal' });
+    if (fs.existsSync(lnk) && shell.readShortcutLink(lnk).appUserModelId !== AUMID)
+      shell.writeShortcutLink(lnk, 'update', { appUserModelId: AUMID });
   } catch (e) { log('ярлык для уведомлений', e); }
 }
 
@@ -651,7 +654,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', (_e, argv, cwd) => runCommand(parseArgs(argv, cwd), true));
   app.whenReady().then(() => {
-    app.setAppUserModelId('GameGoal');
+    app.setAppUserModelId(AUMID);
     state = load();
     migrateAutostart();
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
