@@ -1,0 +1,107 @@
+/* Токены Nintendo UI (nintendo-ui-motion / design-system.md) */
+:root {
+  --glass: rgba(14, 15, 20, .86);
+  --glass-solid: #0f1016;
+  --line: rgba(255, 255, 255, .08);
+  --text: #eef0f6;
+  --muted: #bdc2db;
+  --dim: #7d8299;
+  --g1: #4a6beb;  --g2: #ed99db;
+  --t1: #385cf2;  --t2: #8f70f2;  --t3: #f294d1;
+  --jc-blue: #0db8e6;  --jc-red: #f74754;
+  --dash-blue: #6bb8e6;  --dash-red: #ed808c;
+  --plus: #7be3b4;  --minus: #ff7a85;
+  --tile: linear-gradient(120deg, var(--t1), var(--t2) 55%, var(--t3));
+
+  --ease-scroll: cubic-bezier(.25, .5, .6, 1);
+  --ease-enter: cubic-bezier(.16, 1, .3, 1);
+  --ease-exit: cubic-bezier(.7, 0, .84, 0);
+  --t-scroll: 117ms;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  color: var(--text);
+  font: 400 14px/1.4 Rubik, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+input { user-select: text; }
+:focus-visible { outline: 3px solid #8aa6ff; outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.icon-btn {
+  width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; padding: 0;
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--line); color: var(--muted);
+  transition: transform var(--t-scroll) var(--ease-scroll), color var(--t-scroll), background var(--t-scroll);
+}
+.icon-btn:hover { color: var(--text); background: rgba(255, 255, 255, .10); transform: scale(1.06); }
+.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn.on { background: var(--tile); border-color: transparent; color: #fff; }
+
+.btn {
+  height: 40px; padding: 0 18px; border-radius: 20px; border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .06); font-weight: 500; display: inline-flex; align-items: center; gap: 8px;
+  color: var(--text); white-space: nowrap;
+  transition: background var(--t-scroll), transform var(--t-scroll) var(--ease-scroll);
+}
+.btn:hover { background: rgba(255, 255, 255, .10); }
+.btn svg { width: 16px; height: 16px; }
+.btn.primary { background: var(--tile); border-color: transparent; color: #fff; box-shadow: 0 6px 18px rgba(80, 90, 240, .25); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { height: 34px; padding: 0 14px; font-size: 13px; }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+
+.field {
+  height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .04); outline: none; min-width: 0; width: 100%;
+  transition: border-color var(--t-scroll), background var(--t-scroll);
+}
+.field:focus { border-color: #8aa6ff; background: rgba(255, 255, 255, .07); }
+.field::placeholder { color: var(--dim); }
+select.field {
+  appearance: none; padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 19px) 17px, calc(100% - 14px) 17px; background-size: 5px 5px; background-repeat: no-repeat;
+}
+select.field option { background: #15161d; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; border-radius: 12px;
+  background: rgba(255, 255, 255, .06); border: 1px solid var(--line); font-size: 12px; color: var(--muted); white-space: nowrap;
+}
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+.chip.steam::before { background: var(--dash-blue); }
+.chip.nintendo::before { background: var(--jc-red); }
+
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+
+/* Полоса прогресса: заливка едет трансформом, скругления не искажаются */
+.bar { position: relative; border-radius: 99px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.bar .fill {
+  position: absolute; inset: 0; border-radius: inherit; background: var(--tile);
+  transform: translateX(-100%); transition: transform 900ms var(--ease-enter);
+}
+.bar .fill::after {
+  content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 22px; border-radius: inherit;
+  background: radial-gradient(circle at 70% 50%, rgba(255, 255, 255, .55), transparent 70%);
+}
+
+/* Контур, по которому течёт цвет: крутится только трансформ */
+.ring { position: relative; padding: 2px; overflow: hidden; isolation: isolate; }
+.ring::before {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: 50%;
+  width: 150vmax; height: 150vmax; margin: -75vmax 0 0 -75vmax;
+  background: conic-gradient(var(--g1), var(--g2), var(--g1), var(--g2), var(--g1));
+  animation: spin 10s linear infinite;
+}
+@keyframes spin { to { transform: rotate(1turn); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring::before { animation: none; }
+  * { transition-duration: 0ms !important; }
+}

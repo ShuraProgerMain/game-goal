@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src https: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Game Goal</title>
+<link rel="stylesheet" href="common.css">
+<style>
+html, body { background: transparent; overflow: hidden; height: 100%; }
+body { padding: 12px 14px 16px; }
+.card {
+  height: 100%; border-radius: 26px; cursor: default;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 26px rgba(74, 107, 235, .16);
+}
+/* Цвет по контуру течёт только при наведении и после изменений: виджет висит всегда, лишняя работа не нужна */
+.card::before { animation-play-state: paused; }
+.card:hover::before, .card.flow::before { animation-play-state: running; }
+.in {
+  position: relative; height: 100%; border-radius: 24px; background: var(--glass-solid); overflow: hidden;
+  padding: 14px 16px 14px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px;
+}
+.glint {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .07) 48%, rgba(255, 255, 255, .02) 55%, transparent 65%);
+}
+
+.top { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 14px; align-items: center; }
+.cover {
+  position: relative; width: 124px; height: 62px; padding: 0; border: 0; border-radius: 13px; overflow: hidden;
+  background: var(--tile); display: grid; place-items: center; color: #fff;
+  transition: transform var(--t-scroll) var(--ease-scroll);
+}
+.cover:hover { transform: scale(1.04); }
+.cover > svg { width: 30px; height: 30px; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.badge {
+  position: absolute; right: 5px; bottom: 5px; width: 22px; height: 22px; border-radius: 11px;
+  display: grid; place-items: center; background: rgba(14, 15, 20, .85); color: #dbdee6;
+}
+.badge svg { width: 12px; height: 12px; }
+.unlocked .badge { background: var(--tile); color: #fff; }
+/* Скидка: красная метка в цвет правого Joy-Con */
+.sale { position: absolute; left: 5px; top: 5px; height: 20px; padding: 0 7px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--jc-red); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 2px 8px rgba(247, 71, 84, .45); }
+
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 24px; }
+.actions { display: flex; gap: 4px; opacity: 0; transition: opacity var(--t-scroll) var(--ease-scroll); }
+.card:hover .actions, .actions:focus-within { opacity: 1; }
+.actions .icon-btn { width: 26px; height: 26px; border-radius: 13px; }
+.actions .icon-btn svg { width: 14px; height: 14px; }
+.title {
+  margin-top: 2px; font-size: 16px; font-weight: 600; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.meta { margin-top: 5px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.meta .price { font-weight: 600; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.buy {
+  height: 24px; padding: 0 11px; border: 0; border-radius: 12px; background: var(--tile); color: #fff;
+  font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(80, 90, 240, .35);
+  transition: transform var(--t-scroll) var(--ease-scroll);
+}
+.buy:hover { transform: scale(1.06); }
+.buy.sure { background: linear-gradient(120deg, var(--jc-red), var(--t3)); }
+
+.ph { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.earned { position: relative; font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1; white-space: nowrap; }
+.earned small { font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.pct { font-size: 15px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.pct small { font-size: 11px; font-weight: 500; color: var(--dim); margin-left: 4px; }
+.float { position: absolute; left: 100%; top: -2px; margin-left: 8px; font-size: 13px; font-weight: 600; color: var(--plus); opacity: 0; pointer-events: none; }
+
+.track { position: relative; margin-top: -2px; }
+.track .bar { height: 9px; }
+.mark { position: absolute; left: 0; top: -3px; bottom: -3px; width: 100%; pointer-events: none; transition: transform 900ms var(--ease-enter); }
+.mark i { position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: rgba(255, 255, 255, .45); }
+.mark.hit i { background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .7); }
+
+.bottom { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 34px; gap: 8px; align-items: end; }
+.st .l { font-size: 10.5px; color: var(--dim); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st .v { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st .v.pos { color: var(--plus); }
+.st .v.neg { color: var(--minus); }
+.add-btn { width: 34px; height: 34px; border-radius: 17px; }
+.add-btn svg { width: 15px; height: 15px; }
+
+.quick { display: grid; grid-template-columns: minmax(0, 1fr) 34px 34px; gap: 6px; align-items: center; align-self: end; }
+.quick .field { height: 34px; border-radius: 17px; font-size: 13px; padding: 0 14px; }
+.quick .icon-btn { width: 34px; height: 34px; border-radius: 17px; }
+/* «Купил!»: сколько заплатил — своя цена по умолчанию, можно поправить (картридж, скидка) */
+.quick.buyq { grid-template-columns: auto minmax(0, 1fr) 34px 34px; }
+.buyq .bl { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; padding-left: 4px; }
+.buyq .bl small { display: block; font-size: 10.5px; font-weight: 500; color: var(--dim); }
+.buyq .cur { position: relative; min-width: 0; }
+.buyq .cur span { position: absolute; right: 14px; top: 9px; font-size: 13px; color: var(--muted); pointer-events: none; }
+.buyq .cur .field { width: 100%; padding-right: 30px; }
+
+/* Баннер достижения: выезжает сверху внутри карточки */
+.banner {
+  position: absolute; left: 12px; right: 12px; top: 10px; z-index: 6; display: none; align-items: center; gap: 10px;
+  height: 44px; padding: 0 14px 0 8px; border-radius: 22px; background: rgba(22, 23, 32, .97);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+.banner.open { display: flex; }
+.banner .ico { width: 30px; height: 30px; border-radius: 15px; background: var(--tile); color: #fff; display: grid; place-items: center; flex: none; }
+.banner .ico svg { width: 15px; height: 15px; }
+.banner .bt { min-width: 0; }
+.banner .bk { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.banner .bn { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Награда открыта: Joy-Con внутри карточки */
+.unlock { position: absolute; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(15, 16, 22, .97); border-radius: 24px; cursor: pointer; }
+.unlock.open { display: grid; }
+.u-glow { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%; background: radial-gradient(circle, rgba(143, 112, 242, .5), rgba(242, 148, 209, .15) 40%, transparent 66%); opacity: 0; }
+.u-text { position: relative; text-align: center; padding: 0 48px; display: grid; gap: 4px; }
+.u-eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); opacity: 0; }
+.u-title { font-size: 20px; font-weight: 700; line-height: 1.15; }
+.u-title span { display: inline-block; opacity: 0; white-space: pre; }
+.u-sub { font-size: 12px; color: var(--muted); opacity: 0; }
+.jc { position: absolute; top: 18px; bottom: 18px; width: 22px; left: 50%; }
+.jc-l { margin-left: -23px; background: var(--jc-blue); border-radius: 14px 4px 4px 14px; transform-origin: 100% 100%; }
+.jc-r { margin-left: 1px; background: var(--jc-red); border-radius: 4px 14px 14px 4px; transform-origin: 0 100%; }
+.jc::after { content: ""; position: absolute; left: 5px; width: 12px; height: 12px; border-radius: 50%; background: rgba(0, 0, 0, .28); }
+.jc-l::after { top: 22%; }
+.jc-r::after { bottom: 26%; }
+</style>
+</head>
+<body>
+<div class="card ring" id="card">
+  <div class="in">
+    <div class="glint" id="glint"></div>
+
+    <div class="top">
+      <button class="cover" id="cover" title="Выбрать игру">
+        <svg id="coverPh"><use href="#i-pad"/></svg>
+        <img id="coverImg" alt="" hidden>
+        <span class="sale" id="sale" hidden></span>
+        <span class="badge" id="badge" hidden><svg><use id="badgeUse" href="#i-lock"/></svg></span>
+      </button>
+      <div style="min-width:0">
+        <div class="head">
+          <span class="eyebrow">Награда</span>
+          <div class="actions">
+            <button class="icon-btn" id="pinBtn" title="Поверх всех окон"><svg><use href="#i-pin"/></svg></button>
+            <button class="icon-btn" id="gearBtn" title="Настройки"><svg><use href="#i-gear"/></svg></button>
+            <button class="icon-btn" id="hideBtn" title="Скрыть в трей"><svg><use href="#i-min"/></svg></button>
+          </div>
+        </div>
+        <div class="title" id="title">Выбери игру-награду</div>
+        <div class="meta"><span class="chip" id="platform" hidden></span><span class="price num" id="price"></span><button class="buy" id="buyBtn" hidden>Купил!</button></div>
+      </div>
+    </div>
+
+    <div class="ph">
+      <div class="earned num"><span id="earned">0</span> <small id="ofTarget"></small><span class="float num" id="float"></span></div>
+      <div class="pct num" id="pct">0%</div>
+    </div>
+    <div class="track">
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="mark" id="mark" hidden><i></i></div>
+    </div>
+
+    <div class="bottom" id="bottom">
+      <div class="st"><div class="l">До цели</div><div class="v num" id="sLeft">—</div></div>
+      <div class="st"><div class="l">Игра съест</div><div class="v num" id="sShare">—</div></div>
+      <div class="st"><div class="l">Останется</div><div class="v num" id="sRest">—</div></div>
+      <button class="icon-btn add-btn on" id="addBtn" title="Добавить доход"><svg><use href="#i-plus"/></svg></button>
+    </div>
+    <form class="quick" id="quick" hidden autocomplete="off">
+      <input class="field" id="quickIn" placeholder="1500 превью @заказчик · минус — расход">
+      <button class="icon-btn on" type="submit" title="Добавить"><svg><use href="#i-check"/></svg></button>
+      <button class="icon-btn" type="button" id="quickX" title="Отмена"><svg><use href="#i-x"/></svg></button>
+    </form>
+
+    <form class="quick buyq" id="buyForm" hidden autocomplete="off">
+      <div class="bl">Заплатил<small id="buyHint">за игру</small></div>
+      <span class="cur"><input class="field num" id="buyIn" inputmode="decimal"><span class="cur-sym" id="buyCur"></span></span>
+      <button class="icon-btn on" type="submit" title="На полку"><svg><use href="#i-check"/></svg></button>
+      <button class="icon-btn" type="button" id="buyX" title="Отмена"><svg><use href="#i-x"/></svg></button>
+    </form>
+
+    <div class="banner" id="banner"><div class="ico"><svg><use href="#i-star"/></svg></div><div class="bt"><div class="bk" id="bannerKind">Достижение</div><div class="bn" id="bannerText"></div></div></div>
+
+    <div class="unlock" id="unlock">
+      <div class="u-glow" id="uGlow"></div>
+      <div class="jc jc-l" id="jcL"></div><div class="jc jc-r" id="jcR"></div>
+      <div class="u-text"><div class="u-eyebrow" id="uEyebrow">Награда открыта</div><div class="u-title" id="uTitle"></div><div class="u-sub" id="uSub"></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="logic.js"></script>
+<script src="common.js"></script>
+<script>
+let prevUnlocked = null;
+
+function render() {
+  const g = state.game, earned = earnedSum(), target = state.target, unlocked = isUnlocked();
+  $('#card').classList.toggle('unlocked', unlocked);
+
+  // Игра
+  const img = $('#coverImg');
+  // Картинка, которая не загрузилась, остаётся скрытой и при следующих перерисовках
+  img.onerror = () => { if (g && g.fallback && img.src !== g.fallback) img.src = g.fallback; else { img.dataset.failed = g ? g.image : ''; img.hidden = true; } };
+  if (g && g.image) { if (img.dataset.want !== g.image) { img.dataset.want = g.image; delete img.dataset.failed; img.src = g.image; } img.hidden = img.dataset.failed === g.image; } else img.hidden = true;
+  $('#badge').hidden = !g;
+  $('#badgeUse').setAttribute('href', unlocked ? '#i-star' : '#i-lock');
+  $('#title').textContent = g ? g.title : 'Выбери игру-награду';
+  const plat = $('#platform');
+  plat.hidden = !g || !g.platform;
+  if (g) { plat.textContent = g.source === 'nintendo' ? 'eShop' : g.platform; plat.className = 'chip ' + (g.source || ''); }
+  $('#price').textContent = g ? (g.price > 0 ? money(g.price) : 'цена не указана') : 'нажми на картинку';
+  const sale = $('#sale');
+  sale.hidden = !(g && g.sale && g.sale.percent > 0);
+  if (!sale.hidden) {
+    sale.textContent = `−${g.sale.percent}%`;
+    sale.title = `Скидка: ${nf.format(g.sale.final)} ${Logic.SYMBOLS[g.sale.currency] || g.sale.currency} вместо ${nf.format(g.sale.regular)}`;
+  }
+  const buy = $('#buyBtn');
+  buy.hidden = !(g && g.price > 0 && earned >= g.price);
+  if (buy.hidden && !$('#buyForm').hidden) closeBuy();
+  $('#pinBtn').classList.toggle('on', state.widget.onTop);
+
+  // Прогресс
+  countTo($('#earned'), 'earned', earned, v => money(v));
+  $('#ofTarget').textContent = `из ${money(target)}`;
+  const p = target > 0 ? Math.max(0, Math.min(1, earned / target)) : 0;
+  $('#fill').style.transform = `translateX(${-(1 - p) * 100}%)`;
+  const fc = Logic.forecast(state);
+  $('#pct').innerHTML = `${Math.floor(p * 100)}%` + (fc && !fc.done ? `<small>${Logic.weeksText(fc.weeks)}</small>` : '');
+  $('#pct').title = fc && !fc.done ? `При нынешнем темпе цель наберётся к ${new Date(fc.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : '';
+  const mark = $('#mark'), showMark = g && g.price > 0 && target > 0 && g.price < target;
+  mark.hidden = !showMark;
+  if (showMark) { mark.style.transform = `translateX(${g.price / target * 100}%)`; mark.classList.toggle('hit', earned >= g.price); }
+
+  // Цифры
+  const left = $('#sLeft');
+  left.textContent = unlocked ? 'готово' : money(Math.max(0, target - earned));
+  left.className = 'v num' + (unlocked ? ' pos' : '');
+  const share = $('#sShare'), rest = $('#sRest');
+  share.className = rest.className = 'v num';
+  if (g && g.price > 0) {
+    const s = earned > 0 ? g.price / earned : Infinity;
+    share.textContent = s > 1 ? '>100%' : `${nf.format(Math.round(s * 1000) / 10)}%`;
+    share.title = earned > 0 ? `${money(g.price)} из ${money(earned)}` : 'пока ничего не заработано';
+    if (s > 1) share.classList.add('neg');
+    const r = earned - g.price;
+    rest.textContent = (r < 0 ? '−' : '') + money(Math.abs(r));
+    rest.title = r < 0 ? 'не хватает на игру' : 'останется после покупки';
+    rest.classList.add(r < 0 ? 'neg' : 'pos');
+  } else { share.textContent = rest.textContent = '—'; share.title = rest.title = ''; }
+
+  if (prevUnlocked === false && unlocked) setTimeout(celebrate, 500);
+  prevUnlocked = unlocked;
+}
+
+/* ---------- Быстрое добавление дохода ---------- */
+function openQuick() {
+  if (!$('#buyForm').hidden) closeBuy();
+  $('#bottom').hidden = true; $('#quick').hidden = false;
+  anim($('#quick'), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 150, easing: EASE_SCROLL });
+  $('#quickIn').value = ''; $('#quickIn').focus(); Sfx.tick();
+}
+function closeQuick() {
+  $('#quick').hidden = true; $('#bottom').hidden = false;
+  anim($('#bottom'), [{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: EASE_SCROLL });
+}
+$('#addBtn').onclick = openQuick;
+$('#quickX').onclick = () => { Sfx.close(); closeQuick(); };
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('#unlock').classList.contains('open')) hideUnlock();
+  else if (!$('#quick').hidden) { Sfx.close(); closeQuick(); }
+  else if (!$('#buyForm').hidden) { Sfx.close(); closeBuy(); }
+});
+$('#quick').onsubmit = async ev => {
+  ev.preventDefault();
+  const q = Logic.parseQuick($('#quickIn').value);
+  if (!q) { shake($('#quickIn')); return; }
+  const e = { id: Date.now(), amount: q.amount, note: q.note, client: q.client, date: new Date().toISOString() };
+  closeQuick();
+  Sfx.coin(); floatChip(q.amount); flow(); glint();
+  await api.setState({ entries: [...state.entries, e] });
+};
+function floatChip(amount) {
+  const f = $('#float');
+  f.textContent = (amount >= 0 ? '+' : '−') + nf.format(Math.abs(amount));
+  f.style.color = amount >= 0 ? 'var(--plus)' : 'var(--minus)';
+  anim(f, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none', offset: .18 }, { opacity: 1, transform: 'translateY(-4px)', offset: .7 }, { opacity: 0, transform: 'translateY(-12px)' }], { duration: 1400, easing: 'linear' });
+}
+function glint() { anim($('#glint'), [{ opacity: 1, transform: 'translateX(-70%)' }, { opacity: 1, transform: 'translateX(70%)' }], { duration: 900, easing: 'cubic-bezier(.45,0,.55,1)' }); }
+let flowTimer;
+function flow() { const c = $('#card'); c.classList.add('flow'); clearTimeout(flowTimer); flowTimer = setTimeout(() => c.classList.remove('flow'), 3000); }
+
+/* ---------- «Купил!»: второй клик подтверждает, игра уходит на полку ---------- */
+function openBuy() {
+  if (!$('#quick').hidden) closeQuick();
+  const g = state.game, sp = Logic.salePrice(state);
+  $('#buyIn').value = g.price || '';
+  $('#buyCur').textContent = state.currency;
+  $('#buyHint').textContent = sp ? `скидка: ${money(sp)}` : 'за игру';
+  $('#bottom').hidden = true; $('#buyForm').hidden = false;
+  anim($('#buyForm'), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 150, easing: EASE_SCROLL });
+  $('#buyIn').focus(); $('#buyIn').select(); Sfx.tick(); pop($('#buyBtn'));
+}
+function closeBuy() {
+  $('#buyForm').hidden = true; $('#bottom').hidden = false;
+  anim($('#bottom'), [{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: EASE_SCROLL });
+}
+$('#buyBtn').onclick = () => { if ($('#buyForm').hidden) openBuy(); else { Sfx.close(); closeBuy(); } };
+$('#buyX').onclick = () => { Sfx.close(); closeBuy(); };
+$('#buyForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const paid = parseNum($('#buyIn').value);
+  if (!Number.isFinite(paid) || paid < 0) { shake($('#buyIn')); return; }
+  closeBuy();
+  const title = state.game.title;
+  Sfx.unlock(); flow(); glint();
+  showBanner('На полку', title);
+  const next = await api.buyGame(paid);
+  if (next) showBanner('Следующая награда', next.title);
+};
+
+/* ---------- Баннеры: достижения и покупки, по одному ---------- */
+const bannerQueue = [];
+let bannerBusy = false;
+function showBanner(kind, text, sound = false) { bannerQueue.push({ kind, text, sound }); if (!bannerBusy) nextBanner(); }
+function nextBanner() {
+  const item = bannerQueue.shift();
+  if (!item) { bannerBusy = false; return; }
+  bannerBusy = true;
+  const b = $('#banner');
+  $('#bannerKind').textContent = item.kind; $('#bannerText').textContent = item.text;
+  if (item.sound) { Sfx.unlock(); flow(); }
+  b.classList.add('open');
+  anim(b, [{ opacity: 0, transform: 'translateY(-130%)' }, { opacity: 1, transform: 'none' }], { duration: 360, easing: EASE_ENTER });
+  anim(b.querySelector('.ico'), [{ transform: 'scale(.4) rotate(-30deg)' }, { transform: 'scale(1.15) rotate(8deg)', offset: .75 }, { transform: 'none' }], { duration: 480, delay: 120, easing: 'ease-out', fill: 'backwards' });
+  setTimeout(() => {
+    anim(b, [{ opacity: 1 }, { opacity: 0, transform: 'translateY(-60%)' }], { duration: 200, easing: EASE_EXIT }).finished.then(() => {
+      b.classList.remove('open'); setTimeout(nextBanner, 150);
+    });
+  }, 2800);
+}
+api.onAchievement(list => list.forEach(a => showBanner('Достижение', a.title, true)));
+
+/* ---------- Кнопки ---------- */
+$('#pinBtn').onclick = e => { Sfx.tick(); pop(e.currentTarget); api.setOnTop(!state.widget.onTop); };
+$('#gearBtn').onclick = () => { Sfx.open(); api.openSettings(); };
+$('#cover').onclick = () => { Sfx.open(); api.openSettings('goal'); };
+$('#hideBtn').onclick = () => { Sfx.close(); api.hideWidget(); };
+addEventListener('contextmenu', e => { e.preventDefault(); api.widgetMenu(); });
+
+/* ---------- Перетаскивание за любое пустое место ---------- */
+let drag = null;
+$('#card').addEventListener('pointerdown', e => {
+  if (e.button !== 0 || e.target.closest('button, input, .unlock')) return;
+  drag = { ox: e.screenX - window.screenX, oy: e.screenY - window.screenY, moved: false };
+  e.currentTarget.setPointerCapture(e.pointerId);
+});
+$('#card').addEventListener('pointermove', e => {
+  if (!drag) return;
+  drag.moved = true;
+  api.moveWidget(e.screenX - drag.ox, e.screenY - drag.oy);
+});
+$('#card').addEventListener('pointerup', () => { if (drag && drag.moved) api.moveWidgetEnd(); drag = null; });
+$('#card').addEventListener('dblclick', e => { if (!e.target.closest('button, input, .unlock')) api.openSettings(); });
+
+/* ---------- Награда открыта: Joy-Con, замах 3:1 ---------- */
+function celebrate() {
+  const u = $('#unlock'), g = state.game;
+  const title = g ? g.title : 'Цель достигнута!';
+  $('#uEyebrow').textContent = g ? 'Награда открыта' : 'Готово';
+  $('#uSub').textContent = g && g.price > 0 ? `после покупки останется ${money(earnedSum() - g.price)}` : `заработано ${money(earnedSum())}`;
+  const t = $('#uTitle'); t.replaceChildren(...[...title].map(ch => Object.assign(document.createElement('span'), { textContent: ch })));
+  u.classList.add('open');
+  Sfx.unlock(); flow();
+  const half = u.offsetWidth / 2 - 30;
+  const halfAnim = (el, tilt, dx) => anim(el, [
+    { transform: 'translateY(140%) rotate(-16deg)' }, { transform: 'none', offset: .33, easing: 'ease-in-out' },
+    { transform: `rotate(${tilt}deg)`, offset: .45, easing: EASE_ENTER },
+    { transform: `translateX(${dx}px)` },
+  ], { duration: 1200, easing: EASE_ENTER, fill: 'both' });
+  anim(u, [{ opacity: 0 }, { opacity: 1 }], { duration: 120 });
+  halfAnim($('#jcL'), -7, -half);
+  halfAnim($('#jcR'), 7, half);
+  anim($('#uGlow'), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: .95, transform: 'scale(1)', offset: .15 }, { opacity: .3, transform: 'scale(1.1)' }], { duration: 1100, delay: 540, easing: 'ease-out', fill: 'both' });
+  const spans = [...t.children], mid = (spans.length - 1) / 2;
+  spans.forEach((s, i) => anim(s, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 280, delay: 640 + Math.abs(i - mid) * 16, easing: EASE_ENTER, fill: 'both' }));
+  [$('#uEyebrow'), $('#uSub')].forEach((el, i) => anim(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 700 + i * 200, fill: 'both' }));
+  clearTimeout(u._t); u._t = setTimeout(hideUnlock, 7000);
+}
+function hideUnlock() {
+  const u = $('#unlock'); if (!u.classList.contains('open')) return;
+  clearTimeout(u._t);
+  anim(u, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: EASE_EXIT }).finished.then(() => {
+    u.classList.remove('open'); u.getAnimations({ subtree: true }).forEach(a => a.cancel());
+  });
+}
+$('#unlock').onclick = hideUnlock;
+
+/* ---------- Сигналы от основного процесса: доход из терминала, повторный запуск ---------- */
+api.onWidgetPing(() => { flow(); glint(); });
+api.onWidgetQuick(() => { if ($('#quick').hidden) openQuick(); else $('#quickIn').focus(); });
+
+/* ---------- Старт ---------- */
+(async () => {
+  state = await api.getState();
+  render();
+  api.onState(s => { state = s; render(); });
+  anim($('#card'), [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 600, easing: EASE_ENTER });
+})();
+</script>
+</body>
+</html>

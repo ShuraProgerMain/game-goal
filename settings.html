@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src https: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Game Goal — настройки</title>
+<link rel="stylesheet" href="common.css">
+<style>
+html, body { height: 100%; }
+body {
+  background: #111218; display: flex; flex-direction: column; overflow: hidden;
+  background-image: radial-gradient(520px 300px at 0% 0%, rgba(56, 92, 242, .16), transparent 70%), radial-gradient(420px 260px at 100% 0%, rgba(242, 148, 209, .09), transparent 70%);
+}
+.titlebar { -webkit-app-region: drag; display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 0 18px; }
+.titlebar button { -webkit-app-region: no-drag; }
+.tag {
+  display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 16px 0 12px; border-radius: 17px;
+  background: rgba(14, 15, 20, .78); border: 1px solid rgba(255, 255, 255, .10); color: #dbdee6; font-weight: 500; font-size: 13px;
+}
+.tag i { display: block; width: 3px; height: 13px; border-radius: 2px; }
+.tag i:first-child { background: var(--dash-blue); }
+.tag i:nth-child(2) { background: var(--dash-red); margin-left: -7px; }
+.win-btns { display: flex; gap: 6px; }
+
+.tabs { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; border-radius: 22px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); margin: 16px 18px 0; align-self: flex-start; }
+.tabs button { position: relative; z-index: 1; height: 34px; padding: 0 14px; border: 0; background: none; border-radius: 17px; color: var(--muted); font-weight: 500; white-space: nowrap; transition: color var(--t-scroll); }
+.tabs button.on { color: #fff; }
+.tabs .ind { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 17px; background: var(--tile); transition: transform var(--t-scroll) var(--ease-scroll), width var(--t-scroll) var(--ease-scroll); }
+.tabs.small { margin: 0 0 12px; }
+.tabs.small button { height: 30px; font-size: 13px; padding: 0 14px; }
+
+main { flex: 1; overflow: auto; padding: 16px 18px 24px; }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 5px; border: 3px solid #111218; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .22); }
+.pane { display: grid; gap: 16px; align-content: start; }
+.sec { background: var(--glass); border: 1px solid var(--line); border-radius: 22px; padding: 18px; }
+.sec h2 { margin: 0 0 14px; font-size: 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.sec h2 .label { font-size: 12.5px; }
+.label { font-size: 12.5px; color: var(--dim); font-weight: 500; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: end; }
+.form label { display: grid; gap: 6px; font-size: 12.5px; color: var(--dim); font-weight: 500; }
+.form .field { font-size: 14px; color: var(--text); }
+.with-cur { position: relative; }
+.with-cur span { position: absolute; right: 14px; top: 10px; color: var(--muted); pointer-events: none; }
+.with-cur .field { padding-right: 36px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.empty { padding: 14px 10px 4px; color: var(--dim); text-align: center; line-height: 1.5; }
+.empty b { color: var(--muted); font-weight: 600; }
+
+.current { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: center; }
+.cover { position: relative; width: 100%; aspect-ratio: 2 / 1; border-radius: 14px; overflow: hidden; background: var(--tile); display: grid; place-items: center; color: #fff; }
+.cover > svg { width: 30px; height: 30px; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cur-title { font-size: 16px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cur-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; color: var(--muted); font-weight: 600; font-size: 13px; }
+.current .row { margin-top: 10px; }
+.sale-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 11px; background: var(--jc-red); color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.note-line { font-size: 12.5px; color: var(--dim); margin-top: 6px; font-weight: 500; }
+/* Покупка: сколько заплатил, по умолчанию — цена со скидкой */
+.buy-confirm { align-items: center; }
+.buy-confirm .label { width: 100%; }
+.buy-confirm .with-cur { width: 150px; }
+.buy-confirm .field { height: 34px; font-size: 13px; color: var(--text); }
+.buy-confirm .with-cur span { top: 7px; }
+/* Резервные копии */
+.list.backups li { grid-template-columns: 92px minmax(0, 1fr) auto auto; }
+.list.backups .kind { flex: none; height: 22px; padding: 0 9px; border-radius: 11px; background: rgba(255, 255, 255, .07); color: var(--muted); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap; }
+.btn.sure { background: linear-gradient(120deg, var(--jc-red), var(--t3)); border-color: transparent; color: #fff; }
+
+.wish { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.wish li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 6px 6px 6px 6px; border-radius: 14px; transition: background var(--t-scroll); }
+.wish li:hover { background: rgba(255, 255, 255, .04); }
+.wish .thumb { width: 72px; aspect-ratio: 2 / 1; border-radius: 8px; overflow: hidden; background: var(--tile); position: relative; }
+.wish .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.wish .wt { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wish .wm { font-size: 12.5px; color: var(--dim); display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+.wish .wm .sale-tag { height: 18px; font-size: 11px; padding: 0 7px; }
+
+.search { position: relative; margin-bottom: 8px; }
+.search svg { position: absolute; left: 14px; top: 12px; width: 16px; height: 16px; color: var(--dim); }
+.search .field { padding-left: 40px; }
+.status { color: var(--dim); font-size: 13px; padding: 4px 2px 10px; min-height: 18px; }
+.status.err { color: var(--minus); }
+.results { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card {
+  position: relative; display: grid; gap: 6px; align-content: start; text-align: left; padding: 7px 7px 10px; border: 0;
+  border-radius: 16px; background: rgba(255, 255, 255, .035);
+  transition: transform 120ms var(--ease-scroll) 16ms, background var(--t-scroll);
+}
+.card:focus-visible { outline: none; }
+.card.is-focus { transform: scale(1.04); background: rgba(255, 255, 255, .07); z-index: 1; }
+.card img, .card .noimg { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 11px; display: block; background: var(--tile); }
+.card .t { font-weight: 500; line-height: 1.25; padding: 0 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .m { font-size: 12px; color: var(--dim); padding: 0 3px; display: flex; justify-content: space-between; gap: 8px; }
+.card .m b { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.skel { border-radius: 16px; background: rgba(255, 255, 255, .04); aspect-ratio: 1.5; animation: pulse 1.1s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: .45; } to { opacity: 1; } }
+/* Рамка фокуса ставится сразу, плитка догоняет */
+.focus-ring {
+  position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; border-radius: 20px; padding: 3px; opacity: 0;
+  background: linear-gradient(120deg, var(--g1), var(--g2));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  box-shadow: 0 0 20px rgba(130, 140, 255, .35);
+}
+.confirm { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: start; }
+.form { display: grid; gap: 12px; }
+.hint { font-size: 12.5px; color: var(--muted); margin-top: -4px; }
+.hint:empty { display: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+.add { display: grid; grid-template-columns: 110px 140px minmax(0, 1fr) auto; gap: 8px; }
+.list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; }
+.list li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto 32px; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px 0 12px; border-radius: 12px; transition: background var(--t-scroll); }
+.list li:hover { background: rgba(255, 255, 255, .04); }
+.list .date { color: var(--dim); font-size: 12.5px; }
+.list .note { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.list .note span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.list .note .none { color: var(--dim); }
+.list .note svg { width: 16px; height: 16px; color: var(--dim); flex: none; }
+.who { flex: none; height: 22px; padding: 0 9px; border-radius: 11px; background: rgba(107, 184, 230, .14); color: var(--dash-blue); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap; }
+.list .amt { font-weight: 600; }
+.list .amt.p { color: var(--plus); }
+.list .amt.n { color: var(--minus); }
+.list li.buy .amt { color: var(--muted); }
+.del { width: 30px; height: 30px; border-radius: 15px; border: 0; background: none; color: var(--dim); display: grid; place-items: center; opacity: 0; transition: opacity var(--t-scroll), background var(--t-scroll), color var(--t-scroll); }
+li:hover .del, .del:focus-visible { opacity: 1; }
+.del:hover { background: rgba(255, 122, 133, .14); color: var(--minus); }
+.del svg { width: 15px; height: 15px; }
+.total { font-size: 28px; font-weight: 600; }
+
+/* Статистика */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tile { background: var(--glass); border: 1px solid var(--line); border-radius: 22px; padding: 16px 18px; display: grid; gap: 2px; }
+.tile .v { font-size: 24px; font-weight: 600; }
+.tile .v.pos { color: var(--plus); }
+.tile .s { font-size: 12.5px; color: var(--muted); }
+.chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; align-items: end; height: 140px; padding-top: 18px; }
+.col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
+.col .b { width: 100%; min-height: 3px; border-radius: 6px 6px 3px 3px; background: var(--tile); opacity: .5; transform-origin: bottom; }
+.col.now .b { opacity: 1; box-shadow: 0 0 14px rgba(143, 112, 242, .45); }
+.col .v { position: absolute; top: -2px; font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity var(--t-scroll); }
+.col:hover .v, .col.now .v { opacity: 1; }
+.col .d { font-size: 10.5px; color: var(--dim); height: 13px; }
+.clients { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.clients li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; min-height: 42px; padding: 0 12px; border-radius: 12px; }
+.clients li:hover { background: rgba(255, 255, 255, .04); }
+.clients .cn { font-weight: 500; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.clients .cn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clients .cm { font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+.clients .ct { font-weight: 600; white-space: nowrap; }
+.quiet { height: 20px; padding: 0 8px; border-radius: 10px; background: rgba(255, 122, 133, .14); color: var(--minus); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; flex: none; }
+
+/* Полка */
+.shelf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.trophy { position: relative; display: grid; gap: 6px; padding: 7px 7px 10px; border-radius: 16px; background: rgba(255, 255, 255, .035); }
+.trophy .cover { border-radius: 11px; }
+.trophy .t { font-weight: 500; font-size: 13px; line-height: 1.25; padding: 0 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.trophy .m { font-size: 11.5px; color: var(--dim); padding: 0 3px; }
+.trophy .del { position: absolute; right: 10px; top: 10px; background: rgba(14, 15, 20, .8); }
+.trophy:hover .del { opacity: 1; }
+.ach { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.a { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, .03); }
+.a .ico { width: 38px; height: 38px; border-radius: 19px; display: grid; place-items: center; background: rgba(255, 255, 255, .06); color: var(--dim); }
+.a .ico svg { width: 17px; height: 17px; }
+.a.got .ico { background: var(--tile); color: #fff; box-shadow: 0 4px 14px rgba(143, 112, 242, .35); }
+.a .at { font-weight: 600; font-size: 13.5px; }
+.a .ad { font-size: 12px; color: var(--dim); line-height: 1.3; }
+.a:not(.got) .at { color: var(--muted); }
+
+.opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.opt:last-of-type { border-bottom: 0; }
+.opt .d { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+.opt .d.err { color: var(--minus); }
+.switch { position: relative; flex: none; width: 46px; height: 28px; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch .tr { position: absolute; inset: 0; border-radius: 14px; background: rgba(255, 255, 255, .12); transition: background var(--t-scroll); }
+.switch .kn { position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 11px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); transition: transform var(--t-scroll) var(--ease-scroll); }
+.switch input:checked ~ .tr { background: var(--tile); }
+.switch input:checked ~ .kn { transform: translateX(18px); }
+.switch input:focus-visible ~ .tr { outline: 3px solid #8aa6ff; outline-offset: 2px; }
+.info { line-height: 1.55; }
+.info b { color: var(--muted); font-weight: 600; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 20px; z-index: 30; transform: translateX(-50%);
+  display: none; align-items: center; gap: 12px; height: 44px; padding: 0 6px 0 18px; border-radius: 22px;
+  background: #1a1b24; border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 14px 36px rgba(0, 0, 0, .5); white-space: nowrap;
+}
+.toast.open { display: flex; }
+.toast .btn:empty { display: none; }
+</style>
+</head>
+<body>
+<header class="titlebar">
+  <div class="tag"><i></i><i></i><span>Game Goal · настройки</span></div>
+  <div class="win-btns">
+    <button class="icon-btn" id="minBtn" title="Свернуть"><svg><use href="#i-min"/></svg></button>
+    <button class="icon-btn" id="closeBtn" title="Закрыть · Esc"><svg><use href="#i-x"/></svg></button>
+  </div>
+</header>
+<nav class="tabs" id="tabs">
+  <div class="ind"></div>
+  <button data-tab="goal">Награда</button>
+  <button data-tab="income">Доходы</button>
+  <button data-tab="stats">Статистика</button>
+  <button data-tab="shelf">Полка</button>
+  <button data-tab="widget">Виджет</button>
+</nav>
+
+<main id="main">
+  <!-- Награда -->
+  <div class="pane" data-pane="goal">
+    <section class="sec form">
+      <h2>Цель</h2>
+      <div class="grid2">
+        <label>Сколько надо заработать<span class="with-cur"><input class="field num" id="target" inputmode="decimal"><span class="cur-sym"></span></span></label>
+        <label>Валюта
+          <select class="field" id="currency">
+            <option value="₽">₽ рубль</option><option value="$">$ доллар</option><option value="€">€ евро</option>
+            <option value="₸">₸ тенге</option><option value="₴">₴ гривна</option><option value="Br">Br бел. рубль</option>
+          </select>
+        </label>
+      </div>
+      <div class="row"><button class="btn small" id="targetFromGame">Цель = цена игры</button></div>
+    </section>
+
+    <section class="sec" id="curSec">
+      <h2>Текущая награда</h2>
+      <div class="current" id="current" hidden>
+        <div class="cover"><svg><use href="#i-pad"/></svg><img id="curImg" alt="" hidden></div>
+        <div style="min-width:0">
+          <div class="cur-title" id="curTitle"></div>
+          <div class="cur-meta"><span class="chip" id="curPlat" hidden></span><span class="num" id="curPrice"></span><span class="sale-tag" id="curSale" hidden></span></div>
+          <div class="note-line" id="curNote" hidden></div>
+          <div class="row">
+            <button class="btn small primary" id="buyGame" hidden>Купил!</button>
+            <button class="btn small" id="editGame"><svg><use href="#i-edit"/></svg>Цена и название</button>
+            <button class="btn small" id="storeGame" hidden><svg><use href="#i-out"/></svg>В магазине</button>
+            <button class="btn small" id="clearGame">Убрать</button>
+          </div>
+          <div class="row buy-confirm" id="buyConfirm" hidden>
+            <div class="label" id="buyLabel">Сколько заплатил — эта сумма уйдёт из копилки</div>
+            <span class="with-cur"><input class="field num" id="buyPaid" inputmode="decimal"><span class="cur-sym"></span></span>
+            <button class="btn small primary" id="buyOk">На полку</button>
+            <button class="btn small" id="buyCancel">Отмена</button>
+          </div>
+        </div>
+      </div>
+      <div class="empty" id="noGame">Награда не выбрана. Найди игру ниже и нажми <b>«Сделать наградой»</b></div>
+    </section>
+
+    <section class="sec">
+      <h2>Список желаний <span class="label">после покупки следующей наградой станет первая игра отсюда</span></h2>
+      <ul class="wish" id="wish"></ul>
+      <div class="empty" id="wishEmpty">Пусто. Добавляй игры из поиска кнопкой <b>«В список желаний»</b></div>
+    </section>
+
+    <section class="sec">
+      <h2>Найти игру</h2>
+      <div id="searchPane">
+        <nav class="tabs small" id="srcTabs">
+          <div class="ind"></div>
+          <button data-src="steam">Steam</button>
+          <button data-src="nintendo">Nintendo eShop</button>
+          <button data-src="manual">Вручную</button>
+        </nav>
+        <div class="search"><svg><use href="#i-search"/></svg><input class="field" id="q" autocomplete="off"></div>
+        <div class="status" id="status"></div>
+        <div class="results" id="results"><div class="focus-ring" id="ring"></div></div>
+      </div>
+
+      <div id="confirmPane" hidden>
+        <div class="confirm">
+          <div class="cover"><svg><use href="#i-pad"/></svg><img id="cfImg" alt="" hidden></div>
+          <form class="form" id="cfForm" autocomplete="off">
+            <label>Название<input class="field" id="cfTitle"></label>
+            <label>Цена<span class="with-cur"><input class="field num" id="cfPrice" inputmode="decimal" placeholder="0"><span class="cur-sym"></span></span></label>
+            <div class="hint" id="cfHint"></div>
+            <label>Картинка (ссылка, можно пустой)<input class="field" id="cfImage" placeholder="https://…"></label>
+            <div class="actions">
+              <button type="button" class="btn" id="cfBack">Назад</button>
+              <button type="button" class="btn" id="cfWish">В список желаний</button>
+              <button type="submit" class="btn primary" id="cfSave"><svg><use href="#i-check"/></svg>Сделать наградой</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Доходы -->
+  <div class="pane" data-pane="income" hidden>
+    <section class="sec">
+      <div class="label">В копилке</div>
+      <div class="total num" id="total">0</div>
+      <div class="label" id="totalSub" style="margin-top:2px"></div>
+    </section>
+    <section class="sec">
+      <h2>Добавить <span class="label">отрицательная сумма — это расход</span></h2>
+      <form class="add" id="addForm" autocomplete="off">
+        <input class="field num" id="addAmount" inputmode="decimal" placeholder="Сумма">
+        <input class="field" id="addClient" placeholder="Заказчик" list="clientList">
+        <input class="field" id="addNote" placeholder="За что: монтаж шортсов…">
+        <button class="btn primary" type="submit"><svg><use href="#i-plus"/></svg>Добавить</button>
+      </form>
+      <datalist id="clientList"></datalist>
+      <ul class="list" id="list"></ul>
+      <div class="empty" id="empty">Пока пусто. Можно сразу внести всё, что уже заработано</div>
+    </section>
+  </div>
+
+  <!-- Статистика -->
+  <div class="pane" data-pane="stats" hidden>
+    <div class="tiles">
+      <div class="tile"><div class="label">Эта неделя</div><div class="v num" id="stWeek">—</div><div class="s" id="stWeekSub"></div></div>
+      <div class="tile"><div class="label">Этот месяц</div><div class="v num" id="stMonth">—</div><div class="s" id="stMonthSub"></div></div>
+      <div class="tile"><div class="label">Средний темп</div><div class="v num" id="stPace">—</div><div class="s">в неделю, за последние 8 недель</div></div>
+      <div class="tile"><div class="label">Прогноз</div><div class="v" id="stFc">—</div><div class="s" id="stFcSub"></div></div>
+    </div>
+    <section class="sec">
+      <h2>По неделям <span class="label">последние 12 недель</span></h2>
+      <div class="chart" id="chart"></div>
+    </section>
+    <section class="sec">
+      <h2>Заказчики <span class="label" id="clientsSub"></span></h2>
+      <ul class="clients" id="clients"></ul>
+      <div class="empty" id="clientsEmpty">Добавляй заказчика к доходу: здесь — в поле «Заказчик», в виджете — <b>1500 превью @Вася</b>, в терминале — <b>gg add 1500 превью @Вася</b></div>
+    </section>
+  </div>
+
+  <!-- Полка -->
+  <div class="pane" data-pane="shelf" hidden>
+    <section class="sec">
+      <h2>Купленные игры <span class="label" id="shelfSub"></span></h2>
+      <div class="shelf" id="shelf"></div>
+      <div class="empty" id="shelfEmpty">Здесь будут игры, которые ты купил за свои заработанные. Когда денег хватит, нажми <b>«Купил!»</b> на виджете</div>
+    </section>
+    <section class="sec">
+      <h2>Достижения <span class="label" id="achSub"></span></h2>
+      <div class="ach" id="ach"></div>
+    </section>
+  </div>
+
+  <!-- Виджет -->
+  <div class="pane" data-pane="widget" hidden>
+    <section class="sec">
+      <div class="opt">
+        <div><div>Поверх всех окон</div><div class="d">Виджет не прячется за другими окнами. Выключи, чтобы он жил на рабочем столе под окнами.</div></div>
+        <label class="switch"><input type="checkbox" id="optTop"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Быстрый ввод по Ctrl+Alt+G</div><div class="d" id="hotkeyNote">Из любой программы открывает ввод дохода на виджете.</div></div>
+        <label class="switch"><input type="checkbox" id="optHotkey"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Запускать вместе с Windows</div><div class="d">Виджет появится сам после входа в систему.</div></div>
+        <label class="switch"><input type="checkbox" id="optAuto"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Звуки интерфейса</div><div class="d">Короткие сигналы на действия, без музыки.</div></div>
+        <label class="switch"><input type="checkbox" id="optSound"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn small" id="showWidget">Показать виджет</button>
+        <button class="btn small" id="resetPos">Вернуть в правый верхний угол</button>
+        <button class="btn small" id="openData"><svg><use href="#i-folder"/></svg>Папка с данными</button>
+      </div>
+    </section>
+    <section class="sec">
+      <h2>Резервные копии<span class="label" id="backupCount"></span></h2>
+      <div class="label info">Копия данных сохраняется сама раз в день, хранятся последние 10. Перед восстановлением текущие данные тоже сохраняются в копию, так что его можно отменить.</div>
+      <ul class="list backups" id="backupList"></ul>
+      <div class="row"><button class="btn small" id="backupNow">Сделать копию сейчас</button></div>
+    </section>
+    <section class="sec">
+      <h2>Скидки и курс</h2>
+      <div class="label info" id="pricesInfo"></div>
+      <div class="row"><button class="btn small" id="refreshPrices">Проверить сейчас</button></div>
+    </section>
+    <section class="sec">
+      <div class="label info">
+        Виджет двигается за любое пустое место. Правый клик по нему или по значку в трее открывает меню, двойной клик — эти настройки.
+        Кнопка «−» прячет виджет в трей, вернуть его можно кликом по значку.<br>
+        В терминале: <b>gg</b> — показать виджет, <b>gg add 1500 превью @Вася</b> — добавить доход, <b>gg stats</b> — статистика, <b>gg settings</b> — настройки.
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast"><span id="toastText"></span><button class="btn small" id="toastBtn"></button></div>
+
+<script src="logic.js"></script>
+<script src="common.js"></script>
+<script>
+const dateShort = t => new Date(t).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+const dateLong = t => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+const curOf = code => Logic.SYMBOLS[code] || code;
+// Цена из магазина в своей валюте: по курсу ЦБ, если валюты разные
+function toMine(amount, code) {
+  const v = Logic.convert(amount, code, Logic.CODES[state.currency], state.rates);
+  return v == null ? null : Math.round(v);
+}
+// Картинка, которая не загрузилась, остаётся скрытой и при следующих перерисовках
+function setImg(img, url, fallback) {
+  img.onerror = () => { if (fallback && img.src !== fallback) img.src = fallback; else { img.dataset.failed = url; img.hidden = true; } };
+  if (url && img.dataset.want !== url) { img.dataset.want = url; delete img.dataset.failed; img.src = url; }
+  img.hidden = !url || img.dataset.failed === url;
+}
+
+/* ---------- Вкладки: индикатор едет 117 мс по кривой скролла Switch 2 ---------- */
+function moveInd(nav, btn) {
+  if (!btn || !btn.offsetWidth) return;
+  const ind = nav.querySelector('.ind');
+  ind.style.width = btn.offsetWidth + 'px';
+  ind.style.transform = `translateX(${btn.offsetLeft}px)`;
+}
+let tab = new URLSearchParams(location.search).get('tab') || 'goal';
+function setTab(t, sound = true) {
+  tab = t;
+  const nav = $('#tabs');
+  nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  moveInd(nav, nav.querySelector(`[data-tab="${t}"]`));
+  document.querySelectorAll('.pane').forEach(p => {
+    const on = p.dataset.pane === t;
+    if (on && p.hidden) anim(p, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 160, delay: 40, easing: EASE_SCROLL, fill: 'backwards' });
+    p.hidden = !on;
+  });
+  $('#main').scrollTop = 0;
+  if (t === 'goal') moveInd($('#srcTabs'), $(`#srcTabs [data-src="${src}"]`));
+  if (t === 'stats') renderStats(true);
+  if (t === 'widget') renderBackups();
+  if (sound) Sfx.tick();
+  if (t === 'income') setTimeout(() => $('#addAmount').focus(), 60);
+}
+$('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+api.onSettingsTab(t => setTab(t));
+$('#closeBtn').onclick = () => api.close();
+$('#minBtn').onclick = () => api.minimize();
+
+/* ---------- Отрисовка ---------- */
+function render() {
+  const g = state.game, bal = earnedSum();
+  document.querySelectorAll('.cur-sym').forEach(el => el.textContent = state.currency);
+  if (document.activeElement !== $('#target')) $('#target').value = state.target || '';
+  $('#currency').value = state.currency;
+  $('#targetFromGame').disabled = !(g && g.price > 0) || g.price === state.target;
+
+  // Текущая награда
+  $('#current').hidden = !g; $('#noGame').hidden = !!g;
+  if (g) {
+    setImg($('#curImg'), g.image, g.fallback);
+    $('#curTitle').textContent = g.title;
+    const plat = $('#curPlat'); plat.hidden = !g.platform; plat.textContent = g.platform || ''; plat.className = 'chip ' + (g.source || '');
+    $('#curPrice').textContent = g.price > 0 ? money(g.price) : 'цена не указана';
+    const onSale = g.sale && g.sale.percent > 0;
+    $('#curSale').hidden = !onSale;
+    const note = $('#curNote');
+    if (onSale) {
+      $('#curSale').textContent = `−${g.sale.percent}%`;
+      const mine = g.sale.currency !== Logic.CODES[state.currency] ? toMine(g.sale.final, g.sale.currency) : null;
+      note.textContent = `Сейчас скидка: ${nf.format(g.sale.final)} ${curOf(g.sale.currency)} вместо ${nf.format(g.sale.regular)}` + (mine ? ` · ≈ ${money(mine)}` : '');
+    } else if (g.sale) {
+      note.textContent = `Цена в магазине: ${nf.format(g.sale.final)} ${curOf(g.sale.currency)} · проверено ${dateShort(g.sale.checkedAt)}`;
+    }
+    note.hidden = !g.sale;
+    $('#storeGame').hidden = !g.url;
+    $('#buyGame').hidden = !(g.price > 0 && bal >= g.price);
+    if ($('#buyGame').hidden) $('#buyConfirm').hidden = true;
+  } else $('#buyConfirm').hidden = true;
+  renderWish();
+
+  // Доходы
+  countTo($('#total'), 'total', bal, v => money(v));
+  const inc = state.entries.filter(Logic.isIncome);
+  $('#totalSub').textContent = `заработано всего ${money(Logic.incomeTotal(state))} · ${inc.length} ${plural(inc.length, 'заказ', 'заказа', 'заказов')} · цель ${money(state.target)}`;
+  $('#clientList').replaceChildren(...Logic.clients(state).map(c => Object.assign(document.createElement('option'), { value: c.name })));
+  renderList();
+
+  if (tab === 'stats') renderStats(false);
+  renderShelf();
+
+  $('#optTop').checked = state.widget.onTop;
+  $('#optSound').checked = state.sound;
+  renderPricesInfo();
+}
+
+function renderList(newId) {
+  const items = [...state.entries].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  $('#list').replaceChildren(...items.map(e => {
+    const li = document.createElement('li');
+    if (e.kind === 'purchase') li.className = 'buy';
+    li.innerHTML = `<span class="date num"></span><span class="note"></span><span class="amt num"></span><button class="del" title="Удалить"><svg><use href="#i-x"/></svg></button>`;
+    li.children[0].textContent = dateShort(e.date);
+    const note = li.children[1];
+    if (e.kind === 'purchase') note.insertAdjacentHTML('beforeend', '<svg><use href="#i-pad"/></svg>');
+    note.append(Object.assign(document.createElement('span'), { textContent: e.note || 'без описания', className: e.note ? '' : 'none' }));
+    if (e.client) note.append(Object.assign(document.createElement('span'), { textContent: e.client, className: 'who' }));
+    li.children[2].textContent = signed(e.amount);
+    li.children[2].classList.add(e.amount >= 0 ? 'p' : 'n');
+    li.children[3].onclick = () => removeEntry(e.id, li);
+    if (e.id === newId) anim(li, [{ opacity: 0, transform: 'translateY(-8px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: EASE_ENTER });
+    return li;
+  }));
+  $('#empty').hidden = items.length > 0;
+}
+
+/* ---------- Цель ---------- */
+let targetTimer;
+$('#target').addEventListener('input', () => {
+  clearTimeout(targetTimer);
+  targetTimer = setTimeout(() => {
+    const t = parseNum($('#target').value);
+    if (Number.isFinite(t) && t > 0) api.setState({ target: t });
+  }, 400);
+});
+$('#target').addEventListener('blur', () => { if (!(parseNum($('#target').value) > 0)) $('#target').value = state.target; });
+$('#currency').onchange = e => { Sfx.tick(); api.setState({ currency: e.target.value }); };
+$('#targetFromGame').onclick = e => { pop(e.currentTarget); Sfx.confirm(); $('#target').value = state.game.price; api.setState({ target: state.game.price }); };
+
+/* ---------- Текущая награда: «Купил!» всегда спрашивает, сколько заплачено (цифровая версия, картридж, скидка) ---------- */
+$('#buyGame').onclick = e => {
+  const c = $('#buyConfirm');
+  if (!c.hidden) { closeBuy(); return; }
+  pop(e.currentTarget); Sfx.open();
+  $('#buyPaid').value = state.game.price || '';
+  const sp = Logic.salePrice(state);
+  $('#buyLabel').textContent = 'Сколько заплатил — эта сумма уйдёт из копилки' + (sp ? ` · в магазине сейчас ${money(sp)}` : '');
+  c.hidden = false;
+  anim(c, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: EASE_ENTER });
+  $('#buyPaid').focus(); $('#buyPaid').select();
+};
+function closeBuy() { $('#buyConfirm').hidden = true; }
+$('#buyCancel').onclick = () => { Sfx.close(); closeBuy(); };
+$('#buyPaid').onkeydown = e => { if (e.key === 'Enter') $('#buyOk').click(); if (e.key === 'Escape') { e.stopPropagation(); closeBuy(); } };
+$('#buyOk').onclick = async () => {
+  const paid = parseNum($('#buyPaid').value);
+  if (!Number.isFinite(paid) || paid < 0) { shake($('#buyPaid')); return; }
+  closeBuy();
+  const title = state.game.title;
+  Sfx.unlock();
+  const next = await api.buyGame(paid);
+  toast(next ? `«${title}» на полке. Следующая награда — «${next.title}»` : `«${title}» на полке`);
+};
+$('#editGame').onclick = () => { Sfx.open(); pickGame({ ...state.game, storePrice: 0 }, 'edit'); $('#confirmPane').scrollIntoView({ block: 'center' }); };
+$('#storeGame').onclick = () => api.openUrl(state.game.url);
+$('#clearGame').onclick = () => {
+  const old = state.game; Sfx.remove(); api.setState({ game: null });
+  toast('Награда убрана', 'Вернуть', () => { api.setState({ game: old }); Sfx.confirm(); });
+};
+
+/* ---------- Список желаний ---------- */
+function renderWish() {
+  $('#wish').replaceChildren(...state.wishlist.map((g, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="thumb"><img alt="" hidden></div><div style="min-width:0"><div class="wt"></div><div class="wm"><span class="num"></span></div></div>
+      <button class="btn small" title="Сделать текущей наградой"><svg><use href="#i-star"/></svg>Наградой</button><button class="del" title="Убрать из списка"><svg><use href="#i-x"/></svg></button>`;
+    setImg(li.querySelector('img'), g.image, g.fallback);
+    li.querySelector('.wt').textContent = g.title;
+    li.querySelector('.wm span').textContent = g.price > 0 ? money(g.price) : 'цена не указана';
+    if (g.sale && g.sale.percent > 0) li.querySelector('.wm').append(Object.assign(document.createElement('span'), { className: 'sale-tag', textContent: `−${g.sale.percent}%` }));
+    li.querySelector('.btn').onclick = () => {
+      // Выбранная игра становится наградой, прежняя награда возвращается в начало списка
+      const wish = state.wishlist.filter((_, n) => n !== i);
+      if (state.game) wish.unshift(state.game);
+      Sfx.confirm(); api.setState({ game: g, wishlist: wish });
+    };
+    li.querySelector('.del').onclick = () => {
+      Sfx.remove(); api.setState({ wishlist: state.wishlist.filter((_, n) => n !== i) });
+      toast(`«${g.title}» убрана из списка`, 'Вернуть', () => { const w = [...state.wishlist]; w.splice(i, 0, g); api.setState({ wishlist: w }); });
+    };
+    return li;
+  }));
+  $('#wishEmpty').hidden = state.wishlist.length > 0;
+}
+
+/* ---------- Поиск игры ---------- */
+let src = 'steam', results = [], picked = null, pickMode = 'pick', searchSeq = 0, qTimer, focused = null;
+function setSrc(s, sound = true) {
+  src = s;
+  const nav = $('#srcTabs');
+  nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.src === s));
+  moveInd(nav, nav.querySelector(`[data-src="${s}"]`));
+  if (sound) Sfx.tick();
+  if (s === 'manual') { pickGame({ source: 'manual', title: '', image: '', storePrice: 0, platform: '', url: '' }, 'manual'); return; }
+  $('#q').placeholder = s === 'nintendo' ? 'Название на английском: zelda, mario kart…' : 'Название игры: hollow knight, hades…';
+  if ($('#q').value.trim()) runSearch();
+  else { clearResults(); $('#status').className = 'status'; $('#status').textContent = s === 'nintendo' ? 'Игры для Switch и Switch 2 из европейского eShop, цены в евро.' : 'Поиск по Steam, цены в рублях.'; }
+}
+$('#srcTabs').querySelectorAll('button').forEach(b => b.onclick = () => setSrc(b.dataset.src));
+function showPane(p) { $('#searchPane').hidden = p !== 'search'; $('#confirmPane').hidden = p !== 'confirm'; }
+
+$('#q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(runSearch, 380); });
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { clearTimeout(qTimer); runSearch(); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); $('#results .card')?.focus(); }
+});
+function clearResults() { $('#results').querySelectorAll('.card, .skel').forEach(n => n.remove()); $('#ring').style.opacity = 0; focused = null; }
+
+async function runSearch() {
+  const q = $('#q').value.trim(), seq = ++searchSeq, st = $('#status');
+  st.className = 'status';
+  if (!q) { clearResults(); st.textContent = ''; return; }
+  st.textContent = 'Ищу…';
+  clearResults();
+  for (let i = 0; i < 4; i++) $('#results').append(Object.assign(document.createElement('div'), { className: 'skel' }));
+  try {
+    const data = await api.search(src, q);
+    if (seq !== searchSeq) return;
+    results = data; clearResults();
+    st.textContent = results.length ? `Найдено: ${results.length}. Стрелки и Enter тоже работают.` : (src === 'nintendo' ? 'Ничего. В eShop ищи по-английски.' : 'Ничего не нашлось.');
+    results.forEach((g, i) => {
+      const c = document.createElement('button');
+      c.className = 'card'; c.type = 'button';
+      c.innerHTML = `<img alt="" loading="lazy"><div class="t"></div><div class="m"><span></span><b class="num"></b></div>`;
+      const img = c.querySelector('img');
+      img.src = g.image;
+      img.onerror = () => {
+        if (g.fallback && img.src !== g.fallback) { g.image = g.fallback; img.src = g.fallback; }
+        else img.replaceWith(Object.assign(document.createElement('div'), { className: 'noimg' }));
+      };
+      c.querySelector('.t').textContent = g.title;
+      c.querySelector('.m span').textContent = g.platform;
+      c.querySelector('.m b').textContent = storePrice(g);
+      c.onclick = () => { Sfx.confirm(); pop(c); setTimeout(() => pickGame(g, 'pick'), 120); };
+      c.onmouseenter = () => focusCard(c, false);
+      c.onfocus = () => focusCard(c, true);
+      c.onkeydown = e => gridNav(e, c);
+      $('#results').append(c);
+      anim(c, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: i * 16, easing: EASE_ENTER, fill: 'backwards' });
+    });
+  } catch {
+    if (seq !== searchSeq) return;
+    clearResults();
+    st.className = 'status err'; st.textContent = 'Магазин не ответил. Проверь интернет или попробуй ещё раз.';
+  }
+}
+function storePrice(g) {
+  if (!g.storePrice) return g.source === 'steam' ? 'бесплатно' : '';
+  const own = `${nf.format(g.storePrice)} ${curOf(g.storeCurrency)}`;
+  const mine = g.storeCurrency !== Logic.CODES[state.currency] ? toMine(g.storePrice, g.storeCurrency) : null;
+  return mine ? `${own} ≈ ${money(mine)}` : own;
+}
+function focusCard(c, viaKeys) {
+  if (focused === c) return;
+  if (focused) focused.classList.remove('is-focus');
+  focused = c; c.classList.add('is-focus');
+  const ring = $('#ring');
+  ring.style.width = c.offsetWidth + 12 + 'px';
+  ring.style.height = c.offsetHeight + 12 + 'px';
+  ring.style.transform = `translate(${c.offsetLeft - 6}px, ${c.offsetTop - 6}px) scale(1.04)`;
+  ring.style.opacity = 1;
+  if (viaKeys) Sfx.tick();
+}
+function gridNav(e, c) {
+  const cards = [...$('#results').querySelectorAll('.card')], i = cards.indexOf(c);
+  const cols = cards.filter(x => x.offsetTop === cards[0].offsetTop).length || 1;
+  const to = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + cols, ArrowUp: i - cols }[e.key];
+  if (to === undefined) return;
+  e.preventDefault();
+  if (to < 0) { if (e.key === 'ArrowUp') $('#q').focus(); return; }
+  if (cards[to]) { cards[to].focus({ preventScroll: true }); cards[to].scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' }); }
+}
+$('#results').addEventListener('mouseleave', () => { if (focused && document.activeElement !== focused) { focused.classList.remove('is-focus'); focused = null; $('#ring').style.opacity = 0; } });
+
+// mode: pick — из поиска, manual — вручную, edit — правка текущей награды
+function pickGame(g, mode) {
+  picked = g; pickMode = mode;
+  showPane('confirm');
+  $('#cfTitle').value = g.title;
+  $('#cfImage').value = g.image || '';
+  const code = Logic.CODES[state.currency];
+  const sameCur = g.storeCurrency === code;
+  const mine = !sameCur && g.storePrice ? toMine(g.storePrice, g.storeCurrency) : null;
+  const keep = state.game && state.game.title === g.title ? state.game.price : '';
+  $('#cfPrice').value = keep || (sameCur && g.storePrice ? g.storePrice : mine || '');
+  $('#cfHint').textContent = mode === 'pick' && g.storePrice && !sameCur
+    ? (mine ? `${nf.format(g.storePrice)} ${curOf(g.storeCurrency)} ≈ ${money(mine)} по курсу ЦБ${state.rates?.date ? ' на ' + state.rates.date : ''}. Можно поправить.`
+            : `В магазине: ${nf.format(g.storePrice)} ${curOf(g.storeCurrency)}. Курса ЦБ пока нет — впиши цену в своей валюте.`)
+    : '';
+  $('#cfWish').hidden = mode === 'edit';
+  $('#cfSave').lastChild.textContent = mode === 'edit' ? 'Сохранить' : 'Сделать наградой';
+  setPreview(g.image, g.fallback);
+  anim($('#confirmPane'), [{ opacity: 0, transform: 'scale(1.02)' }, { opacity: 1, transform: 'none' }], { duration: 75, delay: mode === 'pick' ? 50 : 0, easing: EASE_SCROLL, fill: 'backwards' });
+  setTimeout(() => (g.title ? $('#cfPrice') : $('#cfTitle')).focus(), 140);
+}
+function setPreview(url, fallback) {
+  const img = $('#cfImg');
+  if (url) { img.src = url; img.hidden = false; img.onerror = () => { if (fallback && img.src !== fallback) img.src = fallback; else img.hidden = true; }; } else img.hidden = true;
+}
+$('#cfImage').addEventListener('input', e => setPreview(e.target.value.trim()));
+function backToSearch() {
+  Sfx.close(); showPane('search');
+  if (src === 'manual') setSrc('steam', false);
+  anim($('#searchPane'), [{ opacity: 0 }, { opacity: 1 }], { duration: 75, easing: EASE_SCROLL });
+}
+$('#cfBack').onclick = backToSearch;
+function formGame() {
+  const title = $('#cfTitle').value.trim();
+  if (!title) { shake($('#cfTitle')); return null; }
+  const price = parseNum($('#cfPrice').value);
+  const image = $('#cfImage').value.trim();
+  return {
+    title, price: Number.isFinite(price) && price > 0 ? price : 0,
+    image, fallback: image === picked?.image ? (picked?.fallback || '') : '',
+    source: picked?.source || 'manual', platform: picked?.platform || '', url: picked?.url || '',
+    sale: pickMode === 'edit' ? state.game?.sale : undefined,
+  };
+}
+$('#cfForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const game = formGame();
+  if (!game) return;
+  Sfx.confirm();
+  const patch = { game };
+  // Прежняя награда при замене не теряется: уходит в начало списка желаний
+  if (pickMode !== 'edit' && state.game && state.game.title !== game.title) patch.wishlist = [state.game, ...state.wishlist];
+  showPane('search'); if (src === 'manual') setSrc('steam', false);
+  await api.setState(patch);
+  $('#curSec').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  anim($('#current'), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 500, easing: EASE_ENTER });
+};
+$('#cfWish').onclick = async () => {
+  const game = formGame();
+  if (!game) return;
+  Sfx.confirm();
+  showPane('search'); if (src === 'manual') setSrc('steam', false);
+  await api.setState({ wishlist: [...state.wishlist, game] });
+  toast(`«${game.title}» в списке желаний`);
+};
+
+/* ---------- Доходы ---------- */
+let pendingNew = null;
+$('#addForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const amount = parseNum($('#addAmount').value);
+  if (!Number.isFinite(amount) || amount === 0) { shake($('#addAmount')); return; }
+  const e = { id: Date.now(), amount, note: $('#addNote').value.trim(), client: $('#addClient').value.trim(), date: new Date().toISOString() };
+  $('#addAmount').value = $('#addNote').value = '';
+  $('#addAmount').focus();
+  Sfx.coin(); pop(ev.submitter);
+  pendingNew = e.id;
+  await api.setState({ entries: [...state.entries, e] });
+};
+function removeEntry(id, li) {
+  const gone = state.entries.find(e => e.id === id);
+  if (!gone) return;
+  Sfx.remove();
+  anim(li, [{ opacity: 1 }, { opacity: 0, transform: 'translateX(12px)' }], { duration: 90, easing: EASE_EXIT, fill: 'forwards' })
+    .finished.then(() => api.setState({ entries: state.entries.filter(e => e.id !== id) }));
+  toast(`Удалено: ${signed(gone.amount)}`, 'Вернуть', () => { pendingNew = gone.id; api.setState({ entries: [...state.entries, gone] }); Sfx.confirm(); });
+}
+
+/* ---------- Статистика ---------- */
+function renderStats(animate) {
+  const now = Date.now();
+  const week = Logic.sumSince(state, Logic.weekStart(now)), month = Logic.sumSince(state, Logic.monthStart(now));
+  const prevWeek = Logic.sumSince(state, Logic.weekStart(now) - Logic.WEEK) - week;
+  countTo($('#stWeek'), 'stWeek', week, v => money(v));
+  $('#stWeekSub').textContent = prevWeek > 0 ? `на прошлой неделе ${money(prevWeek)}` : 'с понедельника';
+  countTo($('#stMonth'), 'stMonth', month, v => money(v));
+  $('#stMonthSub').textContent = new Date().toLocaleDateString('ru-RU', { month: 'long' });
+  countTo($('#stPace'), 'stPace', Math.round(Logic.pace(state, now)), v => money(v));
+  const fc = Logic.forecast(state, now), fcEl = $('#stFc');
+  fcEl.className = 'v' + (fc && fc.done ? ' pos' : '');
+  if (fc && fc.done) { fcEl.textContent = 'готово'; $('#stFcSub').textContent = 'цель уже набрана'; }
+  else if (fc) { fcEl.textContent = `к ${dateLong(fc.date)}`; $('#stFcSub').textContent = `${Logic.weeksText(fc.weeks)} при нынешнем темпе`; }
+  else { fcEl.textContent = '—'; $('#stFcSub').textContent = 'появится после первого дохода'; }
+
+  // Столбики по неделям: растут снизу с шагом 16 мс, текущая неделя ярче
+  const weeks = Logic.weekly(state, 12, now), max = Math.max(1, ...weeks.map(w => w.sum));
+  $('#chart').replaceChildren(...weeks.map((w, i) => {
+    const col = document.createElement('div');
+    col.className = 'col' + (i === weeks.length - 1 ? ' now' : '');
+    col.title = `Неделя с ${dateShort(w.start)}: ${money(w.sum)}`;
+    col.innerHTML = `<span class="v num"></span><div class="b"></div><span class="d num"></span>`;
+    col.querySelector('.v').textContent = w.sum ? nf.format(Math.round(w.sum / 100) / 10) + 'к' : '';
+    col.querySelector('.b').style.height = `${Math.max(2, w.sum / max * 100 - 14)}%`;
+    col.querySelector('.d').textContent = i % 3 === 2 || i === weeks.length - 1 ? dateShort(w.start) : '';
+    if (animate) anim(col.querySelector('.b'), [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 600, delay: i * 16, easing: EASE_ENTER, fill: 'backwards' });
+    return col;
+  }));
+
+  // Заказчики: кто сколько принёс, кто давно не писал
+  const list = Logic.clients(state);
+  $('#clientsSub').textContent = list.length ? `${list.length} ${plural(list.length, 'заказчик', 'заказчика', 'заказчиков')}` : '';
+  $('#clients').replaceChildren(...list.map(c => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="cn"><span></span></div><div class="cm"></div><div class="ct num"></div>`;
+    li.querySelector('.cn span').textContent = c.name;
+    if (now - c.last > 30 * Logic.DAY) li.querySelector('.cn').insertAdjacentHTML('beforeend', '<span class="quiet">давно не было</span>');
+    li.querySelector('.cm').textContent = `${c.count} ${plural(c.count, 'заказ', 'заказа', 'заказов')} · последний ${dateShort(c.last)}`;
+    li.querySelector('.ct').textContent = money(c.total);
+    return li;
+  }));
+  $('#clientsEmpty').hidden = list.length > 0;
+}
+
+/* ---------- Полка и достижения ---------- */
+function renderShelf() {
+  const shelf = state.shelf || [];
+  $('#shelfSub').textContent = shelf.length ? `${shelf.length} ${plural(shelf.length, 'игра', 'игры', 'игр')} · ${money(shelf.reduce((a, g) => a + (g.paid || 0), 0))}` : '';
+  $('#shelf').replaceChildren(...shelf.map((g, i) => {
+    const d = document.createElement('div');
+    d.className = 'trophy';
+    d.innerHTML = `<div class="cover"><svg><use href="#i-pad"/></svg><img alt="" hidden></div><div class="t"></div><div class="m num"></div><button class="del" title="Убрать с полки"><svg><use href="#i-x"/></svg></button>`;
+    setImg(d.querySelector('img'), g.image, g.fallback);
+    d.querySelector('.t').textContent = g.title;
+    d.querySelector('.m').textContent = `${dateShort(g.boughtAt)}${g.paid ? ' · ' + money(g.paid) : ''}${g.onSale ? ' · со скидкой' : ''}`;
+    d.querySelector('.del').onclick = () => {
+      Sfx.remove(); api.setState({ shelf: state.shelf.filter((_, n) => n !== i) });
+      toast(`«${g.title}» убрана с полки`, 'Вернуть', () => { const s = [...state.shelf]; s.splice(i, 0, g); api.setState({ shelf: s }); });
+    };
+    return d;
+  }));
+  $('#shelfEmpty').hidden = shelf.length > 0;
+
+  const got = state.achievements || {};
+  const n = Logic.ACHIEVEMENTS.filter(a => got[a.id]).length;
+  $('#achSub').textContent = `${n} из ${Logic.ACHIEVEMENTS.length}`;
+  $('#ach').replaceChildren(...Logic.ACHIEVEMENTS.map(a => {
+    const d = document.createElement('div');
+    d.className = 'a' + (got[a.id] ? ' got' : '');
+    d.innerHTML = `<div class="ico"><svg><use href="${got[a.id] ? '#i-star' : '#i-lock'}"/></svg></div><div style="min-width:0"><div class="at"></div><div class="ad"></div></div>`;
+    d.querySelector('.at').textContent = a.title;
+    d.querySelector('.ad').textContent = got[a.id] ? `${a.desc} · ${dateShort(got[a.id])}` : a.desc;
+    return d;
+  }));
+}
+
+/* ---------- Виджет, горячая клавиша, скидки и курс ---------- */
+function renderPricesInfo() {
+  const r = state.rates, sc = state.salesCheckedAt;
+  const parts = [];
+  parts.push(sc ? `Скидки на награду и список желаний проверены ${dateShort(sc)} в ${new Date(sc).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}. Проверка идёт сама раз в 12 часов, о скидке придёт уведомление.` : 'Скидки ещё не проверялись.');
+  if (r && r.values) {
+    const e = r.values.EUR, u = r.values.USD;
+    parts.push(`Курс ЦБ${r.date ? ' на ' + r.date : ''}: € ${nf.format(Math.round(e * 100) / 100)} ₽, $ ${nf.format(Math.round(u * 100) / 100)} ₽ — по нему цены eShop переводятся в твою валюту.`);
+  } else parts.push('Курс ЦБ ещё не загружен.');
+  $('#pricesInfo').textContent = parts.join(' ');
+}
+$('#refreshPrices').onclick = async e => {
+  const b = e.currentTarget; b.disabled = true; b.textContent = 'Проверяю…';
+  try { await api.refreshPrices(); Sfx.confirm(); } finally { b.disabled = false; b.textContent = 'Проверить сейчас'; }
+};
+async function renderHotkey(h) {
+  h = h || await api.getHotkey();
+  $('#optHotkey').checked = h.on;
+  const note = $('#hotkeyNote');
+  note.textContent = h.error || 'Из любой программы открывает ввод дохода на виджете.';
+  note.classList.toggle('err', !!h.error);
+}
+$('#optHotkey').onchange = async e => { Sfx.tick(); renderHotkey(await api.setHotkey(e.target.checked)); };
+$('#optTop').onchange = e => { Sfx.tick(); api.setOnTop(e.target.checked); };
+$('#optAuto').onchange = async e => { Sfx.tick(); e.target.checked = await api.setAutostart(e.target.checked); };
+$('#optSound').onchange = e => { state.sound = e.target.checked; Sfx.tick(); api.setState({ sound: e.target.checked }); };
+$('#showWidget').onclick = e => { pop(e.currentTarget); Sfx.open(); api.showWidget(); };
+$('#resetPos').onclick = e => { pop(e.currentTarget); Sfx.confirm(); api.resetWidgetPos(); };
+$('#openData').onclick = e => { pop(e.currentTarget); api.openDataFolder(); };
+
+/* ---------- Резервные копии: восстановление вторым кликом ---------- */
+async function renderBackups(list) {
+  list = list || await api.listBackups();
+  $('#backupCount').textContent = list.length ? `${list.length} ${plural(list.length, 'копия', 'копии', 'копий')}` : '';
+  if (!list.length) {
+    $('#backupList').replaceChildren(Object.assign(document.createElement('div'), { className: 'empty', textContent: 'Копий пока нет. Первая появится сегодня.' }));
+    return;
+  }
+  $('#backupList').replaceChildren(...list.map(b => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="date num"></span><span class="note"><span></span></span><span class="amt num"></span><button class="btn small">Восстановить</button>`;
+    const d = new Date(b.date);
+    li.children[0].textContent = `${dateShort(d)} ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+    const note = li.children[1];
+    if (b.broken) { note.firstChild.textContent = 'файл повреждён'; note.firstChild.className = 'none'; }
+    else note.firstChild.textContent = `${b.count} ${plural(b.count, 'запись', 'записи', 'записей')}` + (b.game ? ` · ${b.game}` : '');
+    if (b.kind === 'restore') note.append(Object.assign(document.createElement('span'), { className: 'kind', textContent: 'до восстановления' }));
+    li.children[2].textContent = b.broken ? '' : money(b.balance);
+    const btn = li.children[3];
+    btn.disabled = !!b.broken;
+    let timer;
+    btn.onclick = async () => {
+      if (!btn.classList.contains('sure')) {
+        btn.classList.add('sure'); btn.textContent = 'Точно?'; Sfx.tick(); pop(btn);
+        clearTimeout(timer); timer = setTimeout(() => { btn.classList.remove('sure'); btn.textContent = 'Восстановить'; }, 3000);
+        return;
+      }
+      clearTimeout(timer);
+      try {
+        await api.restoreBackup(b.file);
+        Sfx.confirm();
+        toast(`Данные восстановлены из копии от ${li.children[0].textContent}`);
+      } catch { Sfx.remove(); toast('Не удалось восстановить: копия повреждена'); }
+      renderBackups();
+    };
+    return li;
+  }));
+}
+$('#backupNow').onclick = async e => { pop(e.currentTarget); renderBackups(await api.backupNow()); Sfx.confirm(); toast('Копия сохранена'); };
+
+/* ---------- Тост ---------- */
+let toastTimer;
+function toast(text, btnText = '', onBtn = null) {
+  const t = $('#toast'), b = $('#toastBtn');
+  $('#toastText').textContent = text; b.textContent = btnText;
+  b.onclick = () => { onBtn && onBtn(); hideToast(); };
+  const wasOpen = t.classList.contains('open');
+  t.classList.add('open');
+  if (!wasOpen) anim(t, [{ opacity: 0, transform: 'translate(-50%, 14px)' }, { opacity: 1, transform: 'translate(-50%, 0)' }], { duration: 300, easing: EASE_ENTER });
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, btnText ? 5000 : 3200);
+}
+function hideToast() {
+  const t = $('#toast'); if (!t.classList.contains('open')) return;
+  anim(t, [{ opacity: 1 }, { opacity: 0, transform: 'translate(-50%, 8px)' }], { duration: 120, easing: EASE_EXIT }).finished.then(() => t.classList.remove('open'));
+}
+
+/* Esc: сначала форма игры, потом окно */
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#confirmPane').hidden) backToSearch();
+  else api.close();
+});
+
+/* ---------- Старт ---------- */
+(async () => {
+  state = await api.getState();
+  $('#optAuto').checked = await api.getAutostart();
+  renderHotkey();
+  render();
+  api.onState(s => { state = s; render(); if (pendingNew) { renderList(pendingNew); pendingNew = null; } });
+  await document.fonts.ready;
+  setTab(tab, false);
+  setSrc(state.game && state.game.source === 'nintendo' ? 'nintendo' : 'steam', false);
+  document.querySelectorAll('.pane:not([hidden]) .sec, .pane:not([hidden]) .tile').forEach((el, i) => anim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: i * 50, easing: EASE_ENTER, fill: 'backwards' }));
+})();
+</script>
+</body>
+</html>
