@@ -100,8 +100,10 @@ function Write-Cmd([string]$Path, [string]$Text) {
 }
 
 function Remove-StrayShortcut {
-    # только если ярлык ведёт на наш exe: чужой «Electron.lnk» (другой программы) не трогаем
-    if ((Test-Path $StrayLnk) -and (New-Object -ComObject WScript.Shell).CreateShortcut($StrayLnk).TargetPath -eq $Exe) {
+    # только если ярлык ведёт на наш exe или на Electron из папки программы: чужой «Electron.lnk» не трогаем
+    if (-not (Test-Path $StrayLnk)) { return }
+    $target = (New-Object -ComObject WScript.Shell).CreateShortcut($StrayLnk).TargetPath
+    if ($target -eq $Exe -or ($App -and $target -like "$App\node_modules\*")) {
         Remove-Item $StrayLnk -Force
     }
 }

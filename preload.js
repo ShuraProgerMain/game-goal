@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   resetWidgetPos: () => ipcRenderer.invoke('widget:resetPos'),
   moveWidget: (x, y) => ipcRenderer.send('widget:move', x, y),
   moveWidgetEnd: () => ipcRenderer.send('widget:moveEnd'),
+  setWidgetHit: on => ipcRenderer.send('widget:hit', !!on),
   widgetMenu: () => ipcRenderer.send('widget:menu'),
   openSettings: tab => ipcRenderer.invoke('settings:open', tab),
   onSettingsTab: fn => ipcRenderer.on('settings:tab', (_e, t) => fn(t)),

@@ -1,6 +1,6 @@
 {
   "name": "game-goal",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Game Goal: виджет прогресса заработка на игру в стиле Nintendo UI",
   "main": "main.js",
   "license": "MIT",

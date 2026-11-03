@@ -430,6 +430,12 @@ $('#card').addEventListener('pointermove', e => {
   api.moveWidget(e.screenX - drag.ox, e.screenY - drag.oy);
 });
 $('#card').addEventListener('pointerup', () => { if (drag && drag.moved) api.moveWidgetEnd(); drag = null; });
+
+/* ---------- Прозрачные поля под тень пропускают клики к тому, что под виджетом ---------- */
+let hit = null;
+function setHit(on) { if (on !== hit) { hit = on; api.setWidgetHit(on); } }
+addEventListener('mousemove', e => { if (!drag) setHit(!!e.target.closest('#card')); });
+document.addEventListener('mouseleave', () => { if (!drag) setHit(false); });
 $('#card').addEventListener('dblclick', e => { if (!e.target.closest('button, input, .unlock')) api.openSettings(); });
 
 /* ---------- Награда открыта: Joy-Con, замах 3:1 ---------- */

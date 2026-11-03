@@ -9,9 +9,15 @@ const LEGACY_NAME = 'Копилка на игру';  // прежнее имя: �
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GameGoal/1.0';
 // Размер окна виджета: карточка плюс прозрачные поля под тень. Компактный вид — только прогресс
 const SIZES = { full: [440, 236], compact: [360, 142] };
+// Прозрачные поля вокруг карточки (как padding у body в widget.html): клики сквозь них, к краю экрана прижимается карточка
+const PADS = { full: { l: 14, t: 12, r: 14, b: 16 }, compact: { l: 12, t: 10, r: 12, b: 14 } };
+const SNAP = 14;  // на таком расстоянии карточка прилипает к краю экрана
+const EDGE = 8;   // отступ карточки от края по умолчанию
 const ICON = path.join(__dirname, 'assets', 'icon.ico');
 const HOTKEY = 'Control+Alt+G';
-const AUMID = 'ShuraProger.GameGoal';
+// Запуск из node_modules (разработка) — со своим ID: иначе Electron заведёт в «Пуске» ярлык «Electron» на ID программы
+const DEV = /^electron\.exe$/i.test(path.basename(process.execPath));
+const AUMID = DEV ? 'ShuraProger.GameGoal.Dev' : 'ShuraProger.GameGoal';
 const TOAST_CLSID = '{F4047826-9149-4FED-9EF2-050BB44EB7F9}';  // постоянный: Electron записывает его в ярлык
 const HOUR = 36e5;
 
@@ -430,28 +436,41 @@ async function searchNintendo(q) {
 const prefs = { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true };
 
 const wsize = () => SIZES[state.widget.compact ? 'compact' : 'full'];
-// Переключение вида: если виджет в правой половине экрана, держим на месте правый край
+const wpad = () => PADS[state.widget.compact ? 'compact' : 'full'];
+// Переключение вида: на месте остаётся верх карточки и её левый край (правый — если виджет в правой половине экрана)
 function setCompact(on) {
-  const [ow] = wsize();
+  const [ow] = wsize(), op = wpad();
   state.widget.compact = !!on;
-  const [w, h] = wsize();
+  const [w, h] = wsize(), p = wpad();
   if (widget && !widget.isDestroyed()) {
     const [x, y] = widget.getPosition();
     const wa = screen.getDisplayNearestPoint({ x, y }).workArea;
-    const nx = x + ow / 2 > wa.x + wa.width / 2 ? x + ow - w : x;
-    widget.setBounds({ x: nx, y, width: w, height: h });
-    state.widget.x = nx; state.widget.y = y;
+    const nx = x + ow / 2 > wa.x + wa.width / 2 ? x + ow - op.r - (w - p.r) : x + op.l - p.l;
+    const ny = y + op.t - p.t;
+    widget.setBounds({ x: nx, y: ny, width: w, height: h });
+    state.widget.x = nx; state.widget.y = ny;
   }
   save(); broadcast();
 }
+// Карточка прилипает к краям рабочей области; прозрачные поля при этом уходят за край экрана
+function snapPos(x, y) {
+  const [w, h] = wsize(), p = wpad();
+  const card = { l: x + p.l, t: y + p.t, r: x + w - p.r, b: y + h - p.b };
+  const wa = screen.getDisplayNearestPoint({ x: Math.round((card.l + card.r) / 2), y: Math.round((card.t + card.b) / 2) }).workArea;
+  if (Math.abs(card.l - wa.x) < SNAP) x = wa.x - p.l;
+  else if (Math.abs(card.r - (wa.x + wa.width)) < SNAP) x = wa.x + wa.width - w + p.r;
+  if (Math.abs(card.t - wa.y) < SNAP) y = wa.y - p.t;
+  else if (Math.abs(card.b - (wa.y + wa.height)) < SNAP) y = wa.y + wa.height - h + p.b;
+  return { x, y };
+}
 function defaultWidgetPos() {
   const wa = screen.getPrimaryDisplay().workArea;
-  return { x: wa.x + wa.width - wsize()[0] - 4, y: wa.y + 4 };
+  return { x: wa.x + wa.width - wsize()[0] + wpad().r - EDGE, y: wa.y - wpad().t + EDGE };
 }
 function onScreen(x, y) {
   return screen.getAllDisplays().some(d => {
     const a = d.workArea;
-    return x + 60 > a.x && x < a.x + a.width - 60 && y >= a.y - 10 && y < a.y + a.height - 60;
+    return x + 60 > a.x && x < a.x + a.width - 60 && y >= a.y - 30 && y < a.y + a.height - 60;  // поля под тень могут быть за краем
   });
 }
 
@@ -467,6 +486,8 @@ function createWidget(show = true) {
   });
   if (onTop) widget.setAlwaysOnTop(true, 'floating');
   watchErrors(widget, 'widget');
+  // поля под тень пропускают клики; над карточкой виджет сам включает их обратно (widget:hit)
+  widget.setIgnoreMouseEvents(true, { forward: true });
   widget.loadFile('widget.html');
   widget.once('ready-to-show', () => { if (show) widget.showInactive(); updateTray(); });
   widget.webContents.on('render-process-gone', () => { if (!quitting) { widget.destroy(); createWidget(state.widget.visible); } });
@@ -508,7 +529,7 @@ function openSettings(tab) {
    При первом уведомлении Electron ищет ярлык «<ProductName из exe>.lnk» с этим ID, а не найдя — создаёт
    свой, без аргументов. Поэтому установщик пишет в exe имя «Game Goal», а здесь ярлыку ставятся ID и CLSID */
 function linkNotifications() {
-  if (PROFILE) return;
+  if (PROFILE || DEV) return;
   const dir = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
   const lnk = path.join(dir, `${APP_NAME}.lnk`);
   try {
@@ -519,7 +540,8 @@ function linkNotifications() {
   // ярлык, который Electron создал сам, пока в exe было имя «Electron»: из-за него программа звалась так в «Пуске»
   const stray = path.join(dir, 'Electron.lnk');
   try {
-    if (fs.existsSync(stray) && path.resolve(shell.readShortcutLink(stray).target) === path.resolve(process.execPath)) fs.unlinkSync(stray);
+    const l = fs.existsSync(stray) && shell.readShortcutLink(stray);
+    if (l && (l.appUserModelId === AUMID || path.resolve(l.target) === path.resolve(process.execPath))) fs.unlinkSync(stray);
   } catch (e) { log('лишний ярлык Electron', e); }
 }
 
@@ -629,9 +651,11 @@ ipcMain.handle('widget:resetPos', () => {
 });
 // Перетаскивание виджета вручную: у области drag в Windows пропадает hover
 ipcMain.on('widget:move', (_e, x, y) => {
-  if (widget && !widget.isDestroyed() && Number.isFinite(x) && Number.isFinite(y))
-    widget.setBounds({ x: Math.round(x), y: Math.round(y), width: wsize()[0], height: wsize()[1] });
+  if (!widget || widget.isDestroyed() || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const p = snapPos(Math.round(x), Math.round(y));
+  widget.setBounds({ x: p.x, y: p.y, width: wsize()[0], height: wsize()[1] });
 });
+ipcMain.on('widget:hit', (_e, on) => { if (widget && !widget.isDestroyed()) widget.setIgnoreMouseEvents(!on, { forward: true }); });
 ipcMain.on('widget:moveEnd', () => {
   if (!widget || widget.isDestroyed()) return;
   const [x, y] = widget.getPosition();
