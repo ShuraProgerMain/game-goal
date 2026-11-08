@@ -17,6 +17,13 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Ярлык в «Пуске» с AppUserModelID и команда gg в кодировке консоли (см. integration.rs)
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation", "Win32_Globalization", "Win32_Storage_EnhancedStorage", "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem",
+] }
+
 # Маленький exe: оптимизация по размеру, без отладочных символов
 [profile.release]
 opt-level = "s"

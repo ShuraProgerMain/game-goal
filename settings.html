@@ -384,6 +384,20 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         <button class="btn small" id="openData"><svg><use href="#i-folder"/></svg>Папка с данными</button>
       </div>
     </section>
+    <section class="sec" id="systemSec" hidden>
+      <h2>В системе</h2>
+      <div class="label info">Программа — один файл без установки: <b id="exePath"></b>. Ярлык, команда и автозапуск указывают на него. Если перенести файл в другую папку, при следующем запуске всё обновится само.</div>
+      <div class="opt">
+        <div><div>Ярлык в «Пуске»</div><div class="d">Программу можно найти по названию. Без ярлыка Windows не показывает её уведомления.</div></div>
+        <label class="switch"><input type="checkbox" id="optStartMenu"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="opt">
+        <div><div>Команда gg в терминале</div><div class="d">gg add 1500 превью @Вася — добавить доход из любого терминала.</div></div>
+        <label class="switch"><input type="checkbox" id="optGg"><span class="tr"></span><span class="kn"></span></label>
+      </div>
+      <div class="row" style="margin-top:16px"><button class="btn small" id="unregister">Убрать из системы</button></div>
+      <div class="label info">Снимет ярлык, команду gg и автозапуск и закроет программу. Данные остаются, сам файл программы удали после этого.</div>
+    </section>
     <section class="sec">
       <h2>Резервные копии<span class="label" id="backupCount"></span></h2>
       <div class="label info">Копия данных сохраняется сама раз в день, хранятся последние 10. Перед восстановлением текущие данные тоже сохраняются в копию, так что его можно отменить.</div>
@@ -891,6 +905,32 @@ $('#optSound').onchange = e => { state.sound = e.target.checked; Sfx.tick(); api
 $('#showWidget').onclick = e => { pop(e.currentTarget); Sfx.open(); api.showWidget(); };
 $('#resetPos').onclick = e => { pop(e.currentTarget); Sfx.confirm(); api.resetWidgetPos(); };
 $('#openData').onclick = e => { pop(e.currentTarget); api.openDataFolder(); };
+
+/* ---------- Программа без установщика: ярлык, команда, удаление из системы (только версия на Tauri) ---------- */
+async function renderSystem(s) {
+  s = s || await api.getSystem();
+  $('#systemSec').hidden = false;
+  $('#exePath').textContent = s.exe;
+  $('#optStartMenu').checked = s.startMenu;
+  $('#optGg').checked = s.gg;
+}
+if (api.getSystem) {
+  for (const [id, key] of [['#optStartMenu', 'startMenu'], ['#optGg', 'gg']])
+    $(id).onchange = async e => { Sfx.tick(); renderSystem(await api.setSystem(key, e.target.checked)); };
+  let unregTimer;
+  $('#unregister').onclick = async e => {
+    const b = e.currentTarget;
+    if (!b.classList.contains('sure')) {
+      b.classList.add('sure'); b.textContent = 'Точно убрать?'; Sfx.tick(); pop(b);
+      clearTimeout(unregTimer); unregTimer = setTimeout(() => { b.classList.remove('sure'); b.textContent = 'Убрать из системы'; }, 3000);
+      return;
+    }
+    clearTimeout(unregTimer);
+    Sfx.remove();
+    await api.removeFromSystem();
+  };
+  renderSystem();
+}
 
 /* ---------- Резервные копии: восстановление вторым кликом ---------- */
 async function renderBackups(list) {

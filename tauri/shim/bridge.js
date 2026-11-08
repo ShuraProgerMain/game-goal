@@ -29,7 +29,7 @@
   const methods = ['getState', 'setState', 'search', 'setOnTop', 'hideWidget', 'showWidget', 'resetWidgetPos',
     'moveWidget', 'moveWidgetEnd', 'widgetMenu', 'openSettings', 'getAutostart', 'setAutostart', 'openUrl',
     'openDataFolder', 'setCompact', 'buyGame', 'listBackups', 'restoreBackup', 'backupNow', 'refreshPrices',
-    'getHotkey', 'setHotkey'];
+    'getHotkey', 'setHotkey', 'getSystem', 'setSystem', 'removeFromSystem'];
   window.api = Object.fromEntries(methods.map(m => [m, (...args) => call(m, ...args)]));
   Object.assign(window.api, {
     onState: fn => on('state', fn),

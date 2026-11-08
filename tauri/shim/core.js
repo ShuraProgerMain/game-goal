@@ -25,6 +25,8 @@ const DEFAULTS = {
   rates: null, salesCheckedAt: 0,
   weekGoal: 0, weekGoalHit: 0, tint: true, recap: true, recapFor: 0,
   widget: { x: null, y: null, onTop: true, visible: true, compact: false },
+  // Программа без установщика: что она прописывает в систему сама и для какого места exe это сделано
+  system: { startMenu: true, gg: true, exe: '' },
 };
 
 let env, state, tray = null, trayMenu = null, hotkeyError = '', restoredFrom = null, shown = false, quitting = false;
@@ -44,7 +46,7 @@ const read = name => invoke('file_read', { name });
 function fromText(text, name) {
   const s = JSON.parse(text.replace(/^﻿/, ''));  // Блокнот сохраняет с BOM
   if (!s || typeof s !== 'object' || !Array.isArray(s.entries)) throw new Error(`${name}: нет списка доходов`);
-  return { ...DEFAULTS, ...s, widget: { ...DEFAULTS.widget, ...(s.widget || {}) } };
+  return { ...DEFAULTS, ...s, widget: { ...DEFAULTS.widget, ...(s.widget || {}) }, system: { ...DEFAULTS.system, ...(s.system || {}) } };
 }
 async function load() {
   const text = await read('data.json').catch(e => { log('чтение data.json', e); return null; });
@@ -486,6 +488,41 @@ async function setAutostart(on) {
   return autostartOn();
 }
 
+/* ---------- Без установщика: ярлык в «Пуске», команда gg и автозапуск ведут туда, где сейчас лежит exe ---------- */
+async function ensureSystem() {
+  if (env.profile) return;  // тестовый профиль систему не трогает
+  try {
+    const st = await invoke('integration_status');
+    const moved = state.system.exe !== st.exe;
+    if (state.system.startMenu && (moved || !st.start_menu)) await invoke('set_start_menu', { on: true });
+    if (state.system.gg && !st.gg) await invoke('set_gg', { on: true });
+    if (moved && await autostartOn()) await T.autostart.enable();  // в реестре — путь к прежнему месту
+    if (moved) { state.system.exe = st.exe; save(); }
+  } catch (e) { log('ярлык и команда', e); }
+}
+async function systemInfo() {
+  const st = await invoke('integration_status');
+  return { exe: st.exe, startMenu: !!state.system.startMenu, gg: !!state.system.gg, profile: env.profile };
+}
+async function setSystem(key, on) {
+  if (!['startMenu', 'gg'].includes(key)) throw new Error(`нет настройки ${key}`);
+  state.system[key] = !!on; save();
+  if (!env.profile) {
+    try { await invoke(key === 'startMenu' ? 'set_start_menu' : 'set_gg', { on: !!on }); }
+    catch (e) { log(key, e); state.system[key] = !on; save(); }
+  }
+  return systemInfo();
+}
+// Всё, что программа прописала в систему, снимается; данные остаются. Потом программа закрывается
+async function removeFromSystem() {
+  state.system = { startMenu: false, gg: false, exe: '' };
+  if (!env.profile) {
+    for (const cmd of ['set_start_menu', 'set_gg']) await invoke(cmd, { on: false }).catch(e => log(cmd, e));
+  }
+  await setAutostart(false);
+  await quit();
+}
+
 async function setOnTop(on) {
   state.widget.onTop = on; save();
   await widget.setAlwaysOnTop(on);
@@ -609,6 +646,9 @@ const api = {
   setAutostart: on => setAutostart(!!on),
   openUrl(url) { if (/^https:\/\//.test(String(url))) return T.opener.openUrl(url); },
   openDataFolder: () => invoke('open_data_dir'),
+  getSystem: () => systemInfo(),
+  setSystem: (key, on) => setSystem(String(key), on),
+  removeFromSystem: () => removeFromSystem(),
 };
 
 /* ---------- Запуск ---------- */
@@ -619,6 +659,7 @@ async function start() {
   if (!state.autostartSet) { state.autostartSet = true; await setAutostart(true); }
   checkAchievements(); save();
   await backupDaily();
+  await ensureSystem();
 
   let { x, y } = state.widget;
   if (x == null || !await onScreen(x, y)) ({ x, y } = await defaultWidgetPos());

@@ -11,6 +11,8 @@ use std::{
 };
 use tauri::{Emitter, Manager};
 
+mod integration;
+
 /// Папка данных: %APPDATA%\game-goal (как у версии на Electron, данные переезжают сами),
 /// либо GAME_GOAL_PROFILE — отдельная папка для проверок, настоящие данные не трогаются
 struct Data {
@@ -146,9 +148,15 @@ fn quit(app: tauri::AppHandle) {
 
 fn main() {
     let mut builder = tauri::Builder::default();
+    let profile = std::env::var("GAME_GOAL_PROFILE").ok().filter(|p| !p.is_empty());
+    // С тестовым профилем и папка браузера своя: две копии программы с общей папкой WebView2
+    // и разными аргументами браузера не запускаются
+    if let Some(p) = &profile {
+        std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", PathBuf::from(p).join("webview"));
+    }
     // Повторный запуск (ярлык, команда gg) не открывает второй экземпляр, а передаёт команду первому.
     // С тестовым профилем — отдельный экземпляр: иначе команды проверки ушли бы в настоящую программу
-    if std::env::var("GAME_GOAL_PROFILE").map_or(true, |p| p.is_empty()) {
+    if profile.is_none() {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let _ = app.emit_to("widget", "cli", argv.into_iter().skip(1).collect::<Vec<_>>());
         }));
@@ -172,7 +180,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             env_info, file_read, file_write, file_append, file_list, file_copy, file_remove, file_exists,
-            open_data_dir, quit
+            open_data_dir, quit, integration::integration_status, integration::set_start_menu, integration::set_gg
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Game Goal");

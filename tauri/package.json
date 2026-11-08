@@ -5,7 +5,7 @@
   "scripts": {
     "sync": "node sync-web.mjs",
     "dev": "node sync-web.mjs && tauri dev",
-    "build": "node sync-web.mjs && tauri build"
+    "build": "node sync-web.mjs && tauri build --no-bundle"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.12.4",
