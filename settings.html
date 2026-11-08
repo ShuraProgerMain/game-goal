@@ -404,6 +404,10 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         <div><div>Команда gg в терминале</div><div class="d">gg add 1500 превью @Вася — добавить доход из любого терминала.</div></div>
         <label class="switch"><input type="checkbox" id="optGg"><span class="tr"></span><span class="kn"></span></label>
       </div>
+      <div class="opt">
+        <div><div>Версия <span class="num" id="appVersion"></span></div><div class="d" id="updateNote">Программа сама проверяет обновления раз в 12 часов.</div></div>
+        <button class="btn small" id="updateBtn">Проверить</button>
+      </div>
       <div class="row" style="margin-top:16px"><button class="btn small" id="unregister">Убрать из системы</button></div>
       <div class="label info">Снимет ярлык, команду gg и автозапуск и закроет программу. Данные остаются, сам файл программы удали после этого.</div>
     </section>
@@ -955,6 +959,31 @@ if (api.getSystem) {
     await api.removeFromSystem();
   };
   renderSystem();
+  renderUpdate();
+}
+
+/* ---------- Обновление ---------- */
+async function renderUpdate(info) {
+  info = info || await api.getUpdate();
+  const u = info.update, b = $('#updateBtn');
+  $('#appVersion').textContent = info.current;
+  $('#updateNote').textContent = u ? `Доступна версия ${u.version}.` + (u.auto ? ' Обновление скачается и программа перезапустится сама, данные останутся.' : ' Скачай её со страницы выпуска.')
+    : 'Программа сама проверяет обновления раз в 12 часов.';
+  b.textContent = u ? (u.auto ? `Обновить до ${u.version}` : 'Скачать') : 'Проверить';
+  b.classList.toggle('primary', !!u);
+  b.onclick = async () => {
+    pop(b);
+    if (u && u.auto) {
+      b.disabled = true; b.textContent = 'Скачиваю…';
+      try { await api.installUpdate(); } catch { Sfx.remove(); toast('Не удалось обновить, попробуй позже'); b.disabled = false; renderUpdate(); }
+    } else if (u) api.openUrl(u.page);
+    else {
+      b.disabled = true; b.textContent = 'Проверяю…';
+      try { const i = await api.checkUpdate(); if (!i.update) toast('У тебя последняя версия'); renderUpdate(i); }
+      catch { toast('Не удалось проверить обновления'); renderUpdate(); }
+      finally { b.disabled = false; }
+    }
+  };
 }
 
 /* ---------- Резервные копии: восстановление вторым кликом ---------- */
@@ -1087,7 +1116,7 @@ addEventListener('keydown', e => {
   $('#optAuto').checked = await api.getAutostart();
   renderHotkey();
   render();
-  api.onState(s => { state = s; render(); if (pendingNew) { renderList(pendingNew); pendingNew = null; } });
+  api.onState(s => { state = s; render(); if (pendingNew) { renderList(pendingNew); pendingNew = null; } if (api.getUpdate) renderUpdate(); });
   await document.fonts.ready;
   setTab(tab, false);
   setSrc(state.game && state.game.source === 'nintendo' ? 'nintendo' : 'steam', false);

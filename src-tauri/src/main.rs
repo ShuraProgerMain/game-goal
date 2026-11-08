@@ -12,6 +12,8 @@ use std::{
 use tauri::{Emitter, Manager};
 
 mod integration;
+mod notify;
+mod updater;
 
 /// Папка данных: %APPDATA%\game-goal (как у версии 1.x на Electron, данные переезжают сами),
 /// либо GAME_GOAL_PROFILE — отдельная папка для проверок, настоящие данные не трогаются
@@ -160,6 +162,7 @@ fn quit(app: tauri::AppHandle) {
 }
 
 fn main() {
+    updater::after_update();
     let mut builder = tauri::Builder::default();
     let profile = std::env::var("GAME_GOAL_PROFILE").ok().filter(|p| !p.is_empty());
     // С тестовым профилем и папка браузера своя: две копии программы с общей папкой WebView2
@@ -193,7 +196,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             env_info, file_read, file_write, file_append, file_list, file_copy, file_remove, file_exists,
-            open_data_dir, quit, save_card, integration::integration_status, integration::set_start_menu, integration::set_gg
+            open_data_dir, quit, save_card, integration::integration_status, integration::set_start_menu, integration::set_gg,
+            updater::update_check, updater::update_install, notify::notify
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Game Goal");

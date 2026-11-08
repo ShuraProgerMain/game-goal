@@ -141,7 +141,7 @@ function checkWeekGoal() {
   if (state.weekGoalHit === w || Logic.sumSince(state, w) < state.weekGoal) return;
   state.weekGoalHit = w;
   if (shown) fire('banner', 'Цель недели', `${fmt(Logic.sumSince(state, w))} с понедельника`, true);
-  else notify('Цель недели выполнена', `${fmt(Logic.sumSince(state, w))} с понедельника`);
+  else notify('Цель недели выполнена', `${fmt(Logic.sumSince(state, w))} с понедельника`, 'stats');
 }
 
 /* ---------- Итоги недели: уведомление в первый запуск с понедельника ---------- */
@@ -162,7 +162,7 @@ function weeklyRecap() {
   else parts.push(`до цели ${fmt(Math.max(0, state.target - Logic.balance(state)))}`);
   if (best && by.size > 1) parts.push(`лучший заказчик — ${best[0]}`);
   if (state.weekGoal > 0) parts.push(sum >= state.weekGoal ? 'цель недели выполнена' : `цель недели на ${Math.floor(sum / state.weekGoal * 100)}%`);
-  notify('Итоги недели', parts.join(' · '));
+  notify('Итоги недели', parts.join(' · '), 'stats');
 }
 
 /* ---------- Цвета из обложки: два ярких оттенка для обводки и полосы виджета ---------- */
@@ -261,11 +261,13 @@ function checkAchievements() {
   // В первый запуск версии с достижениями открываем заслуженное молча, без лавины баннеров
   if (first || !fresh.length) return;
   if (shown) fire('achievement', fresh);
-  else notify(fresh.length === 1 ? `Достижение: ${fresh[0].title}` : `Новых достижений: ${fresh.length}`, fresh.map(a => a.title).join(', '));
+  else notify(fresh.length === 1 ? `Достижение: ${fresh[0].title}` : `Новых достижений: ${fresh.length}`, fresh.map(a => a.title).join(', '), 'shelf');
 }
 
-// Уведомления системы. Нажатие на них в Tauri пока не обрабатывается, поэтому без перехода на вкладку
-async function notify(title, body) {
+// Уведомления системы. На Windows — свои, с нажатием: оно открывает нужную вкладку настроек (notify:click).
+// На других системах — плагин уведомлений, нажатие там ничего не делает
+async function notify(title, body, tab) {
+  try { return await invoke('notify', { title, body, tab: tab || null }); } catch {}
   try {
     const N = T.notification;
     if (!await N.isPermissionGranted() && await N.requestPermission() !== 'granted') return;
@@ -334,7 +336,7 @@ async function checkSales(force) {
       if (info.percent > 0 && info.percent !== before) {
         const cur = Logic.SYMBOLS[info.currency] || info.currency;
         notify(`Скидка −${info.percent}% на ${g.title}`,
-          `${g.source === 'steam' ? 'Steam' : 'eShop'}: ${fmtP(info.final)} ${cur} вместо ${fmtP(info.regular)} ${cur}`);
+          `${g.source === 'steam' ? 'Steam' : 'eShop'}: ${fmtP(info.final)} ${cur} вместо ${fmtP(info.regular)} ${cur}`, 'goal');
       }
     }
     state.salesCheckedAt = Date.now();
@@ -525,6 +527,33 @@ async function removeFromSystem() {
   await quit();
 }
 
+/* ---------- Обновления: последний выпуск на GitHub, проверка раз в 12 часов ---------- */
+let update = null, updateCheckedAt = 0;
+async function checkUpdate(force) {
+  if (!force && Date.now() - updateCheckedAt < 12 * HOUR) return update;
+  updateCheckedAt = Date.now();
+  try { update = await invoke('update_check'); } catch (e) { log('проверка обновлений', e); return update; }
+  // О каждой новой версии — один раз: баннером на виджете или уведомлением
+  if (update && state.updateSeen !== update.version) {
+    state.updateSeen = update.version; save();
+    const action = update.auto ? { label: 'Обновить', fn: installUpdate } : { label: 'Скачать', fn: () => T.opener.openUrl(update.page) };
+    if (shown) fire('banner', 'Новая версия', `Game Goal ${update.version}`, false, action);
+    else notify(`Доступна Game Goal ${update.version}`, 'Нажми, чтобы обновить: настройки → «Виджет» → «В системе».', 'widget');
+  }
+  broadcast();
+  return update;
+}
+async function updateInfo() {
+  return { current: await T.app.getVersion(), update };
+}
+// Данные сохраняются, exe подменяется новым, программа перезапускается сама
+async function installUpdate() {
+  if (!update?.auto) throw new Error('эта копия обновляется вручную');
+  await flush();
+  quitting = true;
+  try { await invoke('update_install'); } catch (e) { quitting = false; log('обновление', e); throw e; }
+}
+
 async function setOnTop(on) {
   state.widget.onTop = on; save();
   await widget.setAlwaysOnTop(on);
@@ -655,6 +684,9 @@ const api = {
   getSystem: () => systemInfo(),
   setSystem: (key, on) => setSystem(String(key), on),
   removeFromSystem: () => removeFromSystem(),
+  getUpdate: () => updateInfo(),
+  checkUpdate: async () => { await checkUpdate(true); return updateInfo(); },
+  installUpdate: () => installUpdate(),
 };
 
 /* ---------- Запуск ---------- */
@@ -683,6 +715,7 @@ async function start() {
     T.event.emitTo(from, 'rpc:reply', reply);
   });
   await T.event.listen('cli', e => runCommand(e.payload || [], true));
+  await T.event.listen('notify:click', e => openSettings(e.payload || undefined));
   readyResolve();
 
   if (state.widget.visible !== false) await setWidgetVisible(true);
@@ -690,11 +723,12 @@ async function start() {
   await setupHotkey();
   runCommand(env.args, false);
   if (restoredFrom) setTimeout(() => notify('Данные восстановлены из копии',
-    `Файл данных был повреждён, взята копия от ${new Date(restoredFrom).toLocaleDateString('ru-RU')}. Повреждённый файл: data.json.broken`), 3000);
+    `Файл данных был повреждён, взята копия от ${new Date(restoredFrom).toLocaleDateString('ru-RU')}. Повреждённый файл: data.json.broken`, 'widget'), 3000);
   // Сеть — после показа окна: курс ЦБ и скидки раз в 12 часов, условие проверяется раз в час
   setTimeout(() => { updateRates(); checkSales(); ensureColors(); }, 5000);
   setTimeout(weeklyRecap, 15000);
-  setInterval(() => { updateRates(); checkSales(); backupDaily(); weeklyRecap(); }, HOUR);
+  if (!env.profile) setTimeout(checkUpdate, 20000);
+  setInterval(() => { updateRates(); checkSales(); backupDaily(); weeklyRecap(); if (!env.profile) checkUpdate(); }, HOUR);
 }
 
 window.Core = { ready, api };

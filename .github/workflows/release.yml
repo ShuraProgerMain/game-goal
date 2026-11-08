@@ -1,0 +1,81 @@
+# Выпуск версии: git tag v2.0.1 && git push origin v2.0.1
+# Собирает программу для Windows, macOS и Linux и прикладывает файлы к черновику выпуска на GitHub.
+# Черновик никто не видит, пока его не опубликуют вручную.
+name: Выпуск
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.ref_name }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Черновик выпуска
+        run: gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "Game Goal ${TAG#v}" --generate-notes
+
+  build:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --no-bundle
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            rust: aarch64-apple-darwin,x86_64-apple-darwin
+          - os: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Библиотеки для Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+      - run: npm ci
+      - run: node sync-web.mjs
+      - run: npx tauri build ${{ matrix.args }}
+
+      # Файлы выпуска: у каждого рядом .sha256 — по нему программа проверяет скачанное обновление
+      - name: Файлы для Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir out && cp src-tauri/target/release/GameGoal.exe out/GameGoal.exe
+      - name: Файлы для macOS
+        if: runner.os == 'macOS'
+        run: |
+          mkdir out
+          ditto -c -k --keepParent "src-tauri/target/universal-apple-darwin/release/bundle/macos/Game Goal.app" out/GameGoal-macos.zip
+      - name: Файлы для Linux
+        if: runner.os == 'Linux'
+        run: |
+          mkdir out
+          cp src-tauri/target/release/bundle/appimage/*.AppImage out/GameGoal-linux-x86_64.AppImage
+      - name: Приложить к выпуску
+        shell: bash
+        run: |
+          cd out
+          for f in *; do (command -v sha256sum >/dev/null && sha256sum "$f" || shasum -a 256 "$f") | cut -d' ' -f1 > "$f.sha256"; done
+          gh release upload "$TAG" * --clobber --repo "$GITHUB_REPOSITORY"

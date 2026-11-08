@@ -412,7 +412,7 @@ function nextBanner() {
   }, item.action ? 6000 : 2800);
 }
 api.onAchievement(list => list.forEach(a => showBanner('Достижение', a.title, true)));
-api.onBanner((kind, text, sound) => showBanner(kind, text, sound));
+api.onBanner((kind, text, sound, action) => showBanner(kind, text, sound, action));
 
 /* ---------- Кнопки ---------- */
 $('#pinBtn').onclick = e => { Sfx.tick(); pop(e.currentTarget); api.setOnTop(!state.widget.onTop); };
