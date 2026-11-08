@@ -457,5 +457,169 @@
     return t;
   }
 
-  root.GameCard = { stats, tiles, draw, STYLES };
+  /* ---------- Итоги года: сколько игр заработано, полка обложками и цифры за год ---------- */
+  const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+  function yearStats(state, year) {
+    const inYear = t => new Date(t).getFullYear() === year;
+    const games = (state.shelf || []).filter(g => inYear(g.boughtAt)).sort((a, b) => Date.parse(a.boughtAt) - Date.parse(b.boughtAt));
+    const incomes = state.entries.filter(e => Logic.isIncome(e) && inYear(e.date));
+    // Самая длинная серия недель подряд с доходом внутри года
+    const weeks = [...new Set(incomes.map(e => Logic.weekStart(Date.parse(e.date))))].sort((a, b) => a - b);
+    let streak = 0, run = 0, prev = null;
+    for (const w of weeks) { run = prev !== null && w - prev === Logic.WEEK ? run + 1 : 1; streak = Math.max(streak, run); prev = w; }
+    const fastest = games.map(g => ({ title: g.title, days: stats(state, g).days })).sort((a, b) => a.days - b.days)[0] || null;
+    const byMonth = Array(12).fill(0);
+    for (const e of incomes) byMonth[new Date(e.date).getMonth()] += e.amount;
+    const top = Math.max(...byMonth);
+    return {
+      year, games, orders: incomes.length, earned: incomes.reduce((a, e) => a + e.amount, 0), streak, fastest,
+      bestMonth: top > 0 ? MONTHS[byMonth.indexOf(top)] : null,
+    };
+  }
+  // Годы, за которые есть что показать: доходы или покупки; свежий — первым
+  function years(state) {
+    const all = [...state.entries.filter(Logic.isIncome).map(e => e.date), ...(state.shelf || []).map(g => g.boughtAt)];
+    return [...new Set(all.map(t => new Date(t).getFullYear()))].sort((a, b) => b - a);
+  }
+  // Плитки итогов: заказы, серия недель, самая быстрая игра, лучший месяц — что есть
+  function yearTiles(y) {
+    const t = [];
+    if (y.orders) t.push({ n: String(y.orders), u: plural(y.orders, 'заказ', 'заказа', 'заказов'), l: 'за год' });
+    if (y.streak >= 2) t.push({ n: String(y.streak), u: plural(y.streak, 'неделя', 'недели', 'недель'), l: 'подряд с доходом' });
+    if (y.fastest) t.push({ n: String(y.fastest.days), u: plural(y.fastest.days, 'день', 'дня', 'дней'), l: `быстрее всего — ${y.fastest.title}` });
+    if (y.bestMonth) t.push({ n: y.bestMonth, u: '', l: 'самый сильный месяц', word: true });
+    return t.slice(0, 4);
+  }
+  // Сетка обложек: последняя клетка — «+N», если игр больше, чем помещается
+  function coverGrid(ctx, covers, total, x, y, cols, rows, cw, ch, gap) {
+    const cells = cols * rows, shown = total > cells ? cells - 1 : Math.min(total, cells);
+    for (let i = 0; i < shown; i++) {
+      const cx = x + (i % cols) * (cw + gap), cy = y + Math.floor(i / cols) * (ch + gap);
+      coverBox(ctx, covers[i], cx, cy, cw, ch, Math.round(ch * .14));
+    }
+    if (total > cells) {
+      const i = cells - 1, cx = x + (i % cols) * (cw + gap), cy = y + Math.floor(i / cols) * (ch + gap);
+      rounded(ctx, cx, cy, cw, ch, Math.round(ch * .14)); ctx.fillStyle = 'rgba(255, 255, 255, .06)'; ctx.fill();
+      ctx.font = `700 ${Math.round(ch * .36)}px ${FONT}`; ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`+${total - cells + 1}`, cx + cw / 2, cy + ch / 2); ctx.textAlign = 'left';
+    }
+  }
+  function yearTile(ctx, t, x, y, w, h, big, small, label) {
+    rounded(ctx, x, y, w, h, Math.round(h * .18)); ctx.fillStyle = 'rgba(255, 255, 255, .045)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+    ctx.textBaseline = 'alphabetic';
+    const nSize = t.word ? Math.round(big * .7) : big;
+    ctx.font = `700 ${nSize}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(t.n, x + w * .07, y + h * .5);
+    const nw = ctx.measureText(t.n).width;
+    if (t.u) { ctx.font = `600 ${small}px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(t.u, x + w * .07 + nw + small * .4, y + h * .5); }
+    ctx.font = `400 ${label}px ${FONT}`; ctx.fillStyle = C.dim;
+    ctx.fillText(lines(ctx, t.l, w * .86, 1)[0], x + w * .07, y + h * .78);
+  }
+
+  // Итоги года, обычная — 1200×675: слева заголовок и плитки, справа полка обложками
+  function drawYearClassic(ctx, o, col) {
+    const y = o.year, X = 44, Y = 44, CW = W - 88, CH = H - 88;
+    blurredBg(ctx, o, W, H);
+    frame(ctx, col, X, Y, CW, CH, 40, W / 2, H / 2);
+    const L = X + 57, T = Y + 53, gridW = 470, R = X + CW - 57 - gridW, leftW = R - 44 - L;
+
+    joycons(ctx, L, T + 2);
+    ctx.font = `600 15px ${FONT}`; ctx.letterSpacing = '3.3px'; ctx.fillStyle = C.muted; ctx.textBaseline = 'middle';
+    ctx.fillText(`ИТОГИ ${y.year} ГОДА`, L + 39, T + 17);
+    ctx.letterSpacing = '0px';
+
+    // Главная цифра — сколько игр заработано
+    const n = y.games.length;
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `700 110px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(String(n), L - 4, T + 150);
+    const nw = ctx.measureText(String(n)).width;
+    ctx.font = `700 32px ${FONT}`; ctx.fillText(plural(n, 'игра', 'игры', 'игр'), L + nw + 14, T + 112);
+    ctx.font = `400 22px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(n ? 'заработано за год' : 'в этом году ещё впереди', L + nw + 14, T + 146);
+    if (o.money) {
+      ctx.font = `700 30px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, L, T + 200);
+      const mw = ctx.measureText(o.money).width;
+      ctx.font = `400 18px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('доход за год', L + mw + 12, T + 200);
+    }
+
+    // Плитки 2×2 внизу слева
+    const tiles = o.tiles, gap = 12, th = 96, tw = (leftW - gap) / 2, ty0 = Y + CH - 40 - 30 - 26 - (th * 2 + gap);
+    tiles.forEach((t, i) => yearTile(ctx, t, L + (i % 2) * (tw + gap), ty0 + Math.floor(i / 2) * (th + gap), tw, th, 34, 16, 13));
+
+    // Полка обложками справа
+    const cols = 2, rows = 3, cg = 12, cw = (gridW - cg) / cols, ch = Math.round(cw * 215 / 460);
+    const used = Math.min(rows, Math.ceil(n / cols)), gh = used * ch + (used - 1) * cg, gy = Y + (CH - 66 - gh) / 2;
+    if (n) coverGrid(ctx, o.covers, n, R, gy, cols, rows, cw, ch, cg);
+
+    const fy = Y + CH - 40 - 13;
+    if (o.icon) ctx.drawImage(o.icon, L, fy - 13, 26, 26);
+    ctx.textBaseline = 'middle';
+    ctx.font = `600 15px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('Game Goal', L + 37, fy);
+    const gw = ctx.measureText('Game Goal').width;
+    ctx.font = `400 15px ${FONT}`; ctx.fillStyle = C.dim; ctx.fillText('· копилка на игру', L + 45 + gw, fy);
+    ctx.textAlign = 'right'; ctx.fillText(String(y.year), X + CW - 57, fy); ctx.textAlign = 'left';
+  }
+
+  // Итоги года, сторис — 1080×1920: большая цифра, полка обложками, плитки
+  function drawYearStory(ctx, o, col) {
+    const y = o.year, w = 1080, h = 1920, X = 60, Y = 60, CW = w - 120, CH = h - 120, mid = w / 2;
+    blurredBg(ctx, o, w, h, .5, .3);
+    frame(ctx, col, X, Y, CW, CH, 56, mid, h / 2);
+    const L = X + 70, IW = CW - 140;
+
+    ctx.font = `600 22px ${FONT}`; ctx.letterSpacing = '5px';
+    const label = `ИТОГИ ${y.year} ГОДА`, tw = ctx.measureText(label).width, jw = 2 * (40 * 11 / 30) + 3;
+    const x0 = mid - (jw + 24 + tw) / 2;
+    joycons(ctx, x0, Y + 110, 40);
+    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText(label, x0 + jw + 24, Y + 131);
+    ctx.letterSpacing = '0px';
+
+    const n = y.games.length;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = `700 260px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(String(n), mid, Y + 470);
+    ctx.font = `700 52px ${FONT}`; ctx.fillText(`${plural(n, 'игра', 'игры', 'игр')} ${n ? 'заработано' : 'впереди'}`, mid, Y + 550);
+    let yy = Y + 600;
+    if (o.money) {
+      ctx.font = `700 56px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, mid, yy + 50);
+      ctx.font = `400 26px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('доход за год', mid, yy + 90);
+      yy += 130;
+    }
+    ctx.textAlign = 'left';
+
+    // Полка: до 8 обложек в две колонки
+    const cols = 2, rows = Math.min(4, Math.max(1, Math.ceil(Math.min(n, 8) / 2))), cg = 20;
+    const cw = (IW - cg) / cols, ch = Math.round(cw * 215 / 460);
+    if (n) coverGrid(ctx, o.covers, n, L, yy + 20, cols, rows, cw, ch, cg);
+
+    // Плитки 2×2 над подвалом
+    const fy = Y + CH - 80, th = 170, gap = 20, tw2 = (IW - gap) / 2, ty0 = fy - 70 - (th * 2 + gap);
+    o.tiles.forEach((t, i) => yearTile(ctx, t, L + (i % 2) * (tw2 + gap), ty0 + Math.floor(i / 2) * (th + gap), tw2, th, 64, 26, 22));
+
+    ctx.textBaseline = 'middle';
+    ctx.font = `600 26px ${FONT}`;
+    const gw = ctx.measureText('Game Goal').width;
+    ctx.font = `400 26px ${FONT}`;
+    const sub = ' · копилка на игру', sw = ctx.measureText(sub).width;
+    const fx = mid - (44 + 14 + gw + sw) / 2;
+    if (o.icon) ctx.drawImage(o.icon, fx, fy - 22, 44, 44);
+    ctx.font = `600 26px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('Game Goal', fx + 58, fy);
+    ctx.font = `400 26px ${FONT}`; ctx.fillStyle = C.dim; ctx.fillText(sub, fx + 58 + gw, fy);
+  }
+
+  const YEAR_STYLES = {
+    classic: { name: 'Обычная', w: W, h: H, scale: SCALE, draw: drawYearClassic },
+    story: { name: 'Сторис', w: 1080, h: 1920, scale: 1, draw: drawYearStory, pro: true },
+  };
+  // opts: { style, year (из yearStats), covers: [ImageBitmap], cover (фон), icon, colors, tiles, money }
+  async function drawYear(canvas, o) {
+    const st = YEAR_STYLES[o.style] || YEAR_STYLES.classic;
+    const col = { ...BRAND, ...(o.colors || {}) };
+    canvas.width = st.w * st.scale; canvas.height = st.h * st.scale;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(st.scale, 0, 0, st.scale, 0, 0);
+    await Promise.all([`700 110px ${FONT}`, `600 15px ${FONT}`, `400 15px ${FONT}`].map(f => document.fonts.load(f).catch(() => {})));
+    st.draw(ctx, o, col);
+    return canvas;
+  }
+
+  root.GameCard = { stats, tiles, draw, STYLES, yearStats, years, yearTiles, drawYear, YEAR_STYLES };
 })(window);

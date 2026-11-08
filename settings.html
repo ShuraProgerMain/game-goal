@@ -176,6 +176,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .cd-head h2 { margin: 0; }
 #cardCanvas { display: block; max-width: 100%; max-height: 360px; width: auto; height: auto; margin: 0 auto; border-radius: 14px; background: #08090d; }
 .cd-styles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.year-row { margin-top: 14px; align-items: center; gap: 12px; }
 .cd-styles .btn.on { background: var(--tile); border-color: transparent; color: #fff; }
 .pro-tag { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 216, 74, .16); color: #ffd84a; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
 .cd-panel .btn.dim { opacity: .45; }
@@ -337,6 +338,10 @@ li:hover .del, .del:focus-visible { opacity: 1; }
       <div class="tile"><div class="label">Средний темп</div><div class="v num" id="stPace">—</div><div class="s">в неделю, за последние 8 недель</div></div>
       <div class="tile"><div class="label">Прогноз</div><div class="v" id="stFc">—</div><div class="s" id="stFcSub"></div></div>
     </div>
+    <div class="row year-row" id="yearRow" hidden>
+      <button class="btn small primary" id="yearBtn">Итоги года</button>
+      <span class="label">Картинка за год: сколько игр заработано, заказы, лучший месяц</span>
+    </div>
     <section class="sec">
       <h2>По неделям <span class="label">последние 12 недель</span></h2>
       <div class="chart" id="chart"></div>
@@ -450,7 +455,8 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 <!-- Карточка «Награда заработана»: картинка, которой можно поделиться -->
 <div class="card-dlg" id="cardDlg" hidden>
   <div class="cd-panel">
-    <div class="cd-head"><h2>Карточка</h2><button class="icon-btn" id="cardClose" title="Закрыть · Esc"><svg><use href="#i-x"/></svg></button></div>
+    <div class="cd-head"><h2 id="cardTitle">Карточка</h2><button class="icon-btn" id="cardClose" title="Закрыть · Esc"><svg><use href="#i-x"/></svg></button></div>
+    <div class="cd-styles" id="cardYears" hidden></div>
     <div class="cd-styles" id="cardStyles"></div>
     <canvas id="cardCanvas"></canvas>
     <div class="cd-lock" id="cardLock" hidden>Этот стиль — в Game Goal Pro: посмотреть можно, скопировать и сохранить — с Pro.</div>
@@ -839,6 +845,7 @@ function removeEntry(id, li) {
 /* ---------- Статистика ---------- */
 function renderStats(animate) {
   const now = Date.now();
+  renderYearRow();
   const week = Logic.sumSince(state, Logic.weekStart(now)), month = Logic.sumSince(state, Logic.monthStart(now));
   const prevWeek = Logic.sumSince(state, Logic.weekStart(now) - Logic.WEEK) - week;
   countTo($('#stWeek'), 'stWeek', week, v => money(v));
@@ -1068,10 +1075,14 @@ function hideToast() {
 /* ---------- Карточка «Награда заработана» (только версия на Tauri: ей нужны сохранение и сеть без ограничений) ---------- */
 const cardOn = !!(window.GameCard && api.saveCard);
 let cardItem = null, cardCover = null, cardIcon = null, cardArt = {}, cardSeq = 0;
+// Окно карточки показывает либо покупку (game), либо итоги года (year): у них разные стили
+let cardMode = 'game', cardYear = null, yearCovers = [];
 // Pro включается ключом (state.pro); без него платные стили можно только посмотреть
 const proActive = () => !!state.pro;
-const cardStyle = () => GameCard.STYLES[state.cardStyle] ? state.cardStyle : 'classic';
-const cardLocked = () => !!GameCard.STYLES[cardStyle()].pro && !proActive();
+const styleSet = () => cardMode === 'year' ? GameCard.YEAR_STYLES : GameCard.STYLES;
+const styleKey = () => cardMode === 'year' ? 'yearStyle' : 'cardStyle';
+const cardStyle = () => styleSet()[state[styleKey()]] ? state[styleKey()] : 'classic';
+const cardLocked = () => !!styleSet()[cardStyle()].pro && !proActive();
 async function bitmapFrom(url) {
   try { return await createImageBitmap(new Blob([await api.imageBytes(url)])); } catch { return null; }
 }
@@ -1079,7 +1090,15 @@ async function openCard(boughtAt) {
   const item = (state.shelf || []).find(g => g.boughtAt === boughtAt);
   if (!cardOn || !item) return;
   if (tab !== 'shelf') setTab('shelf', false);
-  cardItem = item; cardCover = null; cardArt = {};
+  cardMode = 'game'; cardItem = item; cardCover = null; cardArt = {};
+  await showCardDlg('Карточка');
+  await drawCard();  // сразу, пока обложка грузится, — потом ещё раз с ней
+  cardCover = await coverOf(item);
+  if (cardItem === item) await drawCard();
+}
+async function showCardDlg(title) {
+  $('#cardTitle').textContent = title;
+  $('#cardYears').hidden = cardMode !== 'year';
   renderCardStyles();
   $('#cardMoney').checked = !!state.cardMoney;
   const dlg = $('#cardDlg');
@@ -1089,9 +1108,36 @@ async function openCard(boughtAt) {
     anim(dlg.firstElementChild, [{ opacity: 0, transform: 'translateY(12px) scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE_ENTER });
   }
   cardIcon ||= await createImageBitmap(await (await fetch('assets/icon.png')).blob()).catch(() => null);
-  await drawCard();  // сразу, пока обложка грузится, — потом ещё раз с ней
-  for (const url of [item.image, item.fallback].filter(Boolean)) if ((cardCover = await bitmapFrom(url))) break;
-  if (cardItem === item) await drawCard();
+}
+async function coverOf(g) {
+  for (const url of [g.image, g.fallback].filter(Boolean)) { const b = await bitmapFrom(url); if (b) return b; }
+  return null;
+}
+// Итоги года: обложки всех игр года грузятся разом, фон — обложка последней купленной
+async function openYear(year) {
+  if (!cardOn) return;
+  cardMode = 'year'; cardItem = null; cardYear = year || GameCard.years(state)[0] || new Date().getFullYear();
+  await showCardDlg('Итоги года');
+  renderYears();
+  await loadYear();
+}
+async function loadYear() {
+  const y = cardYear, games = GameCard.yearStats(state, y).games;
+  yearCovers = [];
+  await drawCard();
+  const covers = await Promise.all(games.map(coverOf));
+  if (cardMode === 'year' && cardYear === y) { yearCovers = covers; await drawCard(); }
+}
+function renderYears() {
+  const list = GameCard.years(state);
+  $('#cardYears').hidden = cardMode !== 'year' || list.length < 2;
+  $('#cardYears').replaceChildren(...list.map(y => {
+    const b = document.createElement('button');
+    b.className = 'btn small' + (y === cardYear ? ' on' : '');
+    b.textContent = String(y);
+    b.onclick = () => { Sfx.tick(); pop(b); cardYear = y; renderYears(); loadYear(); };
+    return b;
+  }));
 }
 function cardDate(t) { return new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, ''); }
 // Крупные картинки Steam: вертикальный постер для «Сторис» и арт без логотипа для «Минимала»
@@ -1102,6 +1148,7 @@ async function steamArt(g, kind) {
   return cardArt[kind] = id ? await bitmapFrom(`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${id}/${file}`) : null;
 }
 async function drawCard() {
+  if (cardMode === 'year') return drawYearCard();
   const g = cardItem, st = GameCard.stats(state, g), style = cardStyle(), seq = ++cardSeq;
   const art = style === 'story' ? { poster: await steamArt(g, 'poster') } : style === 'minimal' ? { hero: await steamArt(g, 'hero') } : {};
   if (seq !== cardSeq || g !== cardItem) return;  // пока грузилось, выбрали другой стиль или игру
@@ -1112,17 +1159,29 @@ async function drawCard() {
     money: $('#cardMoney').checked ? '+' + money(st.earned) : null, date: cardDate(g.boughtAt),
     paid: g.paid ? money(g.paid) : null, number: shelf.length - shelf.findIndex(x => x.boughtAt === g.boughtAt),
   });
+  markLocked();
+}
+async function drawYearCard() {
+  const y = GameCard.yearStats(state, cardYear), last = y.games[y.games.length - 1];
+  ++cardSeq;
+  await GameCard.drawYear($('#cardCanvas'), {
+    style: cardStyle(), year: y, covers: yearCovers, cover: yearCovers[yearCovers.length - 1] || null, icon: cardIcon,
+    colors: last && last.colors, tiles: GameCard.yearTiles(y), money: $('#cardMoney').checked && y.earned ? '+' + money(y.earned) : null,
+  });
+  markLocked();
+}
+function markLocked() {
   const locked = cardLocked();
   $('#cardLock').hidden = !locked;
   $('#cardCopy').classList.toggle('dim', locked); $('#cardSave').classList.toggle('dim', locked);
 }
 function renderCardStyles() {
-  $('#cardStyles').replaceChildren(...Object.entries(GameCard.STYLES).map(([id, st]) => {
+  $('#cardStyles').replaceChildren(...Object.entries(styleSet()).map(([id, st]) => {
     const b = document.createElement('button');
     b.className = 'btn small' + (id === cardStyle() ? ' on' : '');
     b.textContent = st.name;
     if (st.pro) b.append(Object.assign(document.createElement('span'), { className: 'pro-tag', textContent: 'PRO' }));
-    b.onclick = () => { Sfx.tick(); pop(b); state.cardStyle = id; api.setState({ cardStyle: id }); renderCardStyles(); drawCard(); };
+    b.onclick = () => { Sfx.tick(); pop(b); state[styleKey()] = id; api.setState({ [styleKey()]: id }); renderCardStyles(); drawCard(); };
     return b;
   }));
 }
@@ -1148,13 +1207,16 @@ if (cardOn) {
     pop(e.currentTarget);
     if (cardLocked()) { Sfx.remove(); toast('Этот стиль доступен в Game Goal Pro'); return; }
     try {
-      const name = `${cardItem.title} — Game Goal`.replace(/[\\/:*?"<>|]/g, '').trim();
+      const name = (cardMode === 'year' ? `Итоги ${cardYear} — Game Goal` : `${cardItem.title} — Game Goal`).replace(/[\\/:*?"<>|]/g, '').trim();
       await api.saveCard(name, $('#cardCanvas').toDataURL('image/png').split(',')[1]);
       Sfx.confirm(); toast('Сохранено в «Изображения» → Game Goal');
     } catch { Sfx.remove(); toast('Не удалось сохранить картинку'); }
   };
   api.onCard(openCard);
+  $('#yearBtn').onclick = e => { pop(e.currentTarget); Sfx.open(); openYear(); };
 }
+// Кнопка итогов — когда есть хоть один год с доходами или покупками
+function renderYearRow() { $('#yearRow').hidden = !cardOn || !GameCard.years(state).length; }
 
 /* Esc: сначала форма игры, потом окно */
 addEventListener('keydown', e => {
