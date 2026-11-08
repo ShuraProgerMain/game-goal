@@ -145,11 +145,15 @@ fn quit(app: tauri::AppHandle) {
 }
 
 fn main() {
-    tauri::Builder::default()
-        // Повторный запуск (ярлык, команда gg) не открывает второй экземпляр, а передаёт команду первому
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+    let mut builder = tauri::Builder::default();
+    // Повторный запуск (ярлык, команда gg) не открывает второй экземпляр, а передаёт команду первому.
+    // С тестовым профилем — отдельный экземпляр: иначе команды проверки ушли бы в настоящую программу
+    if std::env::var("GAME_GOAL_PROFILE").map_or(true, |p| p.is_empty()) {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let _ = app.emit_to("widget", "cli", argv.into_iter().skip(1).collect::<Vec<_>>());
-        }))
+        }));
+    }
+    builder
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
