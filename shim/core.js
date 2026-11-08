@@ -632,7 +632,7 @@ const api = {
   getState: () => clone(state),
   setState(patch) {
     patch = clone(patch);
-    const allowed = ['currency', 'target', 'entries', 'game', 'sound', 'wishlist', 'shelf', 'weekGoal', 'tint', 'recap', 'cardMoney'];
+    const allowed = ['currency', 'target', 'entries', 'game', 'sound', 'wishlist', 'shelf', 'weekGoal', 'tint', 'recap', 'cardMoney', 'cardStyle'];
     const newGame = patch && 'game' in patch && patch.game && patch.game.url !== state.game?.url;
     const newWish = patch && Array.isArray(patch.wishlist) && patch.wishlist.length > state.wishlist.length;
     for (const k of allowed) if (patch && k in patch) state[k] = patch[k];

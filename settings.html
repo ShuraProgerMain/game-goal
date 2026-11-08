@@ -174,7 +174,12 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .cd-panel { width: 100%; max-width: 600px; padding: 16px 20px 20px; border-radius: 24px; background: #15161d; border: 1px solid var(--line); box-shadow: 0 30px 70px rgba(0, 0, 0, .6); }
 .cd-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .cd-head h2 { margin: 0; }
-#cardCanvas { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 675; border-radius: 14px; background: #08090d; }
+#cardCanvas { display: block; max-width: 100%; max-height: 360px; width: auto; height: auto; margin: 0 auto; border-radius: 14px; background: #08090d; }
+.cd-styles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cd-styles .btn.on { background: var(--tile); border-color: transparent; color: #fff; }
+.pro-tag { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 216, 74, .16); color: #ffd84a; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
+.cd-panel .btn.dim { opacity: .45; }
+.cd-lock { margin-top: 10px; font-size: 12.5px; color: #ffd84a; text-align: center; }
 .cd-panel .opt { border-bottom: 0; }
 .trophy .share { justify-self: start; margin: 2px 3px 0; height: 28px; padding: 0 12px; font-size: 12px; }
 
@@ -446,7 +451,9 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 <div class="card-dlg" id="cardDlg" hidden>
   <div class="cd-panel">
     <div class="cd-head"><h2>Карточка</h2><button class="icon-btn" id="cardClose" title="Закрыть · Esc"><svg><use href="#i-x"/></svg></button></div>
+    <div class="cd-styles" id="cardStyles"></div>
     <canvas id="cardCanvas"></canvas>
+    <div class="cd-lock" id="cardLock" hidden>Этот стиль — в Game Goal Pro: посмотреть можно, скопировать и сохранить — с Pro.</div>
     <div class="opt">
       <div><div>Показывать заработанное</div><div class="d">Сумма, которую ты заработал, пока копил на эту игру.</div></div>
       <label class="switch"><input type="checkbox" id="cardMoney"><span class="tr"></span><span class="kn"></span></label>
@@ -1060,7 +1067,11 @@ function hideToast() {
 
 /* ---------- Карточка «Награда заработана» (только версия на Tauri: ей нужны сохранение и сеть без ограничений) ---------- */
 const cardOn = !!(window.GameCard && api.saveCard);
-let cardItem = null, cardCover = null, cardIcon = null;
+let cardItem = null, cardCover = null, cardIcon = null, cardArt = {}, cardSeq = 0;
+// Pro включается ключом (state.pro); без него платные стили можно только посмотреть
+const proActive = () => !!state.pro;
+const cardStyle = () => GameCard.STYLES[state.cardStyle] ? state.cardStyle : 'classic';
+const cardLocked = () => !!GameCard.STYLES[cardStyle()].pro && !proActive();
 async function bitmapFrom(url) {
   try { return await createImageBitmap(new Blob([await api.imageBytes(url)])); } catch { return null; }
 }
@@ -1068,7 +1079,8 @@ async function openCard(boughtAt) {
   const item = (state.shelf || []).find(g => g.boughtAt === boughtAt);
   if (!cardOn || !item) return;
   if (tab !== 'shelf') setTab('shelf', false);
-  cardItem = item; cardCover = null;
+  cardItem = item; cardCover = null; cardArt = {};
+  renderCardStyles();
   $('#cardMoney').checked = !!state.cardMoney;
   const dlg = $('#cardDlg');
   if (dlg.hidden) {
@@ -1082,13 +1094,37 @@ async function openCard(boughtAt) {
   if (cardItem === item) await drawCard();
 }
 function cardDate(t) { return new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, ''); }
+// Крупные картинки Steam: вертикальный постер для «Сторис» и арт без логотипа для «Минимала»
+async function steamArt(g, kind) {
+  if (kind in cardArt) return cardArt[kind];
+  const id = (g.url || '').match(/\/app\/(\d+)/)?.[1];
+  const file = kind === 'poster' ? 'library_600x900_2x.jpg' : 'library_hero.jpg';
+  return cardArt[kind] = id ? await bitmapFrom(`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${id}/${file}`) : null;
+}
 async function drawCard() {
-  const g = cardItem, st = GameCard.stats(state, g);
+  const g = cardItem, st = GameCard.stats(state, g), style = cardStyle(), seq = ++cardSeq;
+  const art = style === 'story' ? { poster: await steamArt(g, 'poster') } : style === 'minimal' ? { hero: await steamArt(g, 'hero') } : {};
+  if (seq !== cardSeq || g !== cardItem) return;  // пока грузилось, выбрали другой стиль или игру
+  const shelf = state.shelf || [];
   await GameCard.draw($('#cardCanvas'), {
-    title: g.title, platform: g.platform || (g.source === 'nintendo' ? 'Nintendo eShop' : 'Steam'),
-    cover: cardCover, icon: cardIcon, colors: g.colors, stats: GameCard.tiles(st),
+    style, title: g.title, platform: g.platform || (g.source === 'nintendo' ? 'Nintendo eShop' : 'Steam'),
+    cover: cardCover, ...art, icon: cardIcon, colors: g.colors, stats: GameCard.tiles(st), raw: st,
     money: $('#cardMoney').checked ? '+' + money(st.earned) : null, date: cardDate(g.boughtAt),
+    paid: g.paid ? money(g.paid) : null, number: shelf.length - shelf.findIndex(x => x.boughtAt === g.boughtAt),
   });
+  const locked = cardLocked();
+  $('#cardLock').hidden = !locked;
+  $('#cardCopy').classList.toggle('dim', locked); $('#cardSave').classList.toggle('dim', locked);
+}
+function renderCardStyles() {
+  $('#cardStyles').replaceChildren(...Object.entries(GameCard.STYLES).map(([id, st]) => {
+    const b = document.createElement('button');
+    b.className = 'btn small' + (id === cardStyle() ? ' on' : '');
+    b.textContent = st.name;
+    if (st.pro) b.append(Object.assign(document.createElement('span'), { className: 'pro-tag', textContent: 'PRO' }));
+    b.onclick = () => { Sfx.tick(); pop(b); state.cardStyle = id; api.setState({ cardStyle: id }); renderCardStyles(); drawCard(); };
+    return b;
+  }));
 }
 function closeCard() {
   const dlg = $('#cardDlg');
@@ -1101,6 +1137,7 @@ if (cardOn) {
   $('#cardMoney').onchange = e => { Sfx.tick(); api.setState({ cardMoney: e.target.checked }); drawCard(); };
   $('#cardCopy').onclick = async e => {
     pop(e.currentTarget);
+    if (cardLocked()) { Sfx.remove(); toast('Этот стиль доступен в Game Goal Pro'); return; }
     try {
       const blob = await new Promise(r => $('#cardCanvas').toBlob(r, 'image/png'));
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
@@ -1109,6 +1146,7 @@ if (cardOn) {
   };
   $('#cardSave').onclick = async e => {
     pop(e.currentTarget);
+    if (cardLocked()) { Sfx.remove(); toast('Этот стиль доступен в Game Goal Pro'); return; }
     try {
       const name = `${cardItem.title} — Game Goal`.replace(/[\\/:*?"<>|]/g, '').trim();
       await api.saveCard(name, $('#cardCanvas').toDataURL('image/png').split(',')[1]);
