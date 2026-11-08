@@ -169,6 +169,15 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .a .ad { font-size: 12px; color: var(--dim); line-height: 1.3; }
 .a:not(.got) .at { color: var(--muted); }
 
+/* Карточка «Награда заработана» */
+.card-dlg { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgba(8, 9, 13, .78); }
+.cd-panel { width: 100%; max-width: 600px; padding: 16px 20px 20px; border-radius: 24px; background: #15161d; border: 1px solid var(--line); box-shadow: 0 30px 70px rgba(0, 0, 0, .6); }
+.cd-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cd-head h2 { margin: 0; }
+#cardCanvas { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 675; border-radius: 14px; background: #08090d; }
+.cd-panel .opt { border-bottom: 0; }
+.trophy .share { justify-self: start; margin: 2px 3px 0; height: 28px; padding: 0 12px; font-size: 12px; }
+
 .opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .opt:last-of-type { border-bottom: 0; }
 .opt .d { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
@@ -421,8 +430,22 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 
 <div class="toast" id="toast"><span id="toastText"></span><button class="btn small" id="toastBtn"></button></div>
 
+<!-- Карточка «Награда заработана»: картинка, которой можно поделиться -->
+<div class="card-dlg" id="cardDlg" hidden>
+  <div class="cd-panel">
+    <div class="cd-head"><h2>Карточка</h2><button class="icon-btn" id="cardClose" title="Закрыть · Esc"><svg><use href="#i-x"/></svg></button></div>
+    <canvas id="cardCanvas"></canvas>
+    <div class="opt">
+      <div><div>Показывать заработанное</div><div class="d">Сумма, которую ты заработал, пока копил на эту игру.</div></div>
+      <label class="switch"><input type="checkbox" id="cardMoney"><span class="tr"></span><span class="kn"></span></label>
+    </div>
+    <div class="row"><button class="btn primary" id="cardCopy">Скопировать</button><button class="btn" id="cardSave">Сохранить</button></div>
+  </div>
+</div>
+
 <script src="logic.js"></script>
 <script src="common.js"></script>
+<script src="card.js"></script>
 <script>
 const dateShort = t => new Date(t).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 const dateLong = t => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
@@ -848,10 +871,12 @@ function renderShelf() {
   $('#shelf').replaceChildren(...shelf.map((g, i) => {
     const d = document.createElement('div');
     d.className = 'trophy';
-    d.innerHTML = `<div class="cover"><svg><use href="#i-pad"/></svg><img alt="" hidden></div><div class="t"></div><div class="m num"></div><button class="del" title="Убрать с полки"><svg><use href="#i-x"/></svg></button>`;
+    d.innerHTML = `<div class="cover"><svg><use href="#i-pad"/></svg><img alt="" hidden></div><div class="t"></div><div class="m num"></div><button class="del" title="Убрать с полки"><svg><use href="#i-x"/></svg></button>`
+      + (cardOn ? '<button class="btn small share">Карточка</button>' : '');
     setImg(d.querySelector('img'), g.image, g.fallback);
     d.querySelector('.t').textContent = g.title;
     d.querySelector('.m').textContent = `${dateShort(g.boughtAt)}${g.paid ? ' · ' + money(g.paid) : ''}${g.onSale ? ' · со скидкой' : ''}`;
+    if (cardOn) d.querySelector('.share').onclick = e => { pop(e.currentTarget); Sfx.open(); openCard(g.boughtAt); };
     d.querySelector('.del').onclick = () => {
       Sfx.remove(); api.setState({ shelf: state.shelf.filter((_, n) => n !== i) });
       toast(`«${g.title}» убрана с полки`, 'Вернуть', () => { const s = [...state.shelf]; s.splice(i, 0, g); api.setState({ shelf: s }); });
@@ -988,10 +1013,71 @@ function hideToast() {
   anim(t, [{ opacity: 1 }, { opacity: 0, transform: 'translate(-50%, 8px)' }], { duration: 120, easing: EASE_EXIT }).finished.then(() => t.classList.remove('open'));
 }
 
+/* ---------- Карточка «Награда заработана» (только версия на Tauri: ей нужны сохранение и сеть без ограничений) ---------- */
+const cardOn = !!(window.GameCard && api.saveCard);
+let cardItem = null, cardCover = null, cardIcon = null;
+async function bitmapFrom(url) {
+  try { return await createImageBitmap(new Blob([await api.imageBytes(url)])); } catch { return null; }
+}
+async function openCard(boughtAt) {
+  const item = (state.shelf || []).find(g => g.boughtAt === boughtAt);
+  if (!cardOn || !item) return;
+  if (tab !== 'shelf') setTab('shelf', false);
+  cardItem = item; cardCover = null;
+  $('#cardMoney').checked = !!state.cardMoney;
+  const dlg = $('#cardDlg');
+  if (dlg.hidden) {
+    dlg.hidden = false;
+    anim(dlg, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: EASE_SCROLL });
+    anim(dlg.firstElementChild, [{ opacity: 0, transform: 'translateY(12px) scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE_ENTER });
+  }
+  cardIcon ||= await createImageBitmap(await (await fetch('assets/icon.png')).blob()).catch(() => null);
+  await drawCard();  // сразу, пока обложка грузится, — потом ещё раз с ней
+  for (const url of [item.image, item.fallback].filter(Boolean)) if ((cardCover = await bitmapFrom(url))) break;
+  if (cardItem === item) await drawCard();
+}
+function cardDate(t) { return new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, ''); }
+async function drawCard() {
+  const g = cardItem, st = GameCard.stats(state, g);
+  await GameCard.draw($('#cardCanvas'), {
+    title: g.title, platform: g.platform || (g.source === 'nintendo' ? 'Nintendo eShop' : 'Steam'),
+    cover: cardCover, icon: cardIcon, colors: g.colors, stats: GameCard.tiles(st),
+    money: $('#cardMoney').checked ? '+' + money(st.earned) : null, date: cardDate(g.boughtAt),
+  });
+}
+function closeCard() {
+  const dlg = $('#cardDlg');
+  Sfx.close();
+  anim(dlg, [{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: EASE_EXIT }).finished.then(() => { dlg.hidden = true; });
+}
+if (cardOn) {
+  $('#cardClose').onclick = closeCard;
+  $('#cardDlg').onclick = e => { if (e.target === e.currentTarget) closeCard(); };
+  $('#cardMoney').onchange = e => { Sfx.tick(); api.setState({ cardMoney: e.target.checked }); drawCard(); };
+  $('#cardCopy').onclick = async e => {
+    pop(e.currentTarget);
+    try {
+      const blob = await new Promise(r => $('#cardCanvas').toBlob(r, 'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      Sfx.confirm(); toast('Картинка скопирована — вставь её в чат');
+    } catch { Sfx.remove(); toast('Не удалось скопировать, попробуй «Сохранить»'); }
+  };
+  $('#cardSave').onclick = async e => {
+    pop(e.currentTarget);
+    try {
+      const name = `${cardItem.title} — Game Goal`.replace(/[\\/:*?"<>|]/g, '').trim();
+      await api.saveCard(name, $('#cardCanvas').toDataURL('image/png').split(',')[1]);
+      Sfx.confirm(); toast('Сохранено в «Изображения» → Game Goal');
+    } catch { Sfx.remove(); toast('Не удалось сохранить картинку'); }
+  };
+  api.onCard(openCard);
+}
+
 /* Esc: сначала форма игры, потом окно */
 addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (!$('#confirmPane').hidden) backToSearch();
+  if (!$('#cardDlg').hidden) closeCard();
+  else if (!$('#confirmPane').hidden) backToSearch();
   else api.close();
 });
 
@@ -1005,6 +1091,8 @@ addEventListener('keydown', e => {
   await document.fonts.ready;
   setTab(tab, false);
   setSrc(state.game && state.game.source === 'nintendo' ? 'nintendo' : 'steam', false);
+  const askCard = new URLSearchParams(location.search).get('card');
+  if (askCard) openCard(askCard);
   document.querySelectorAll('.pane:not([hidden]) .sec, .pane:not([hidden]) .tile').forEach((el, i) => anim(el, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: i * 50, easing: EASE_ENTER, fill: 'backwards' }));
 })();
 </script>

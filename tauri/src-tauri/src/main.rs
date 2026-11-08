@@ -141,6 +141,19 @@ fn open_data_dir(data: tauri::State<Data>) -> Result<(), String> {
     tauri_plugin_opener::open_path(&data.dir, None::<&str>).map_err(err)
 }
 
+// Карточка «Награда заработана»: PNG в «Изображения\Game Goal» (с тестовым профилем — в папку профиля)
+#[tauri::command]
+fn save_card(app: tauri::AppHandle, data: tauri::State<Data>, name: String, png: String) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(png).map_err(err)?;
+    let name: String = name.chars().filter(|c| !r#"\/:*?"<>|"#.contains(*c) && !c.is_control()).collect();
+    let dir = if data.profile { data.dir.join("cards") } else { app.path().picture_dir().map_err(err)?.join("Game Goal") };
+    fs::create_dir_all(&dir).map_err(err)?;
+    let path = dir.join(format!("{}.png", name.trim()));
+    fs::write(&path, bytes).map_err(err)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 fn quit(app: tauri::AppHandle) {
     app.exit(0);
@@ -180,7 +193,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             env_info, file_read, file_write, file_append, file_list, file_copy, file_remove, file_exists,
-            open_data_dir, quit, integration::integration_status, integration::set_start_menu, integration::set_gg
+            open_data_dir, quit, save_card, integration::integration_status, integration::set_start_menu, integration::set_gg
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Game Goal");

@@ -283,6 +283,7 @@ function buyGame(paid) {
   if (price > 0) state.entries.push({ id: Date.now(), amount: -price, note: `Покупка: ${g.title}`, date: now, kind: 'purchase' });
   state.shelf.unshift({ ...g, boughtAt: now, paid: price, onSale: !!(g.sale && g.sale.percent > 0) && price < g.price });
   state.game = state.wishlist.shift() || null;
+  if (state.game) state.game.chosenAt = now;
   changed();
   if (state.game) setTimeout(() => checkSales(true), 1000);
   return state.game;
@@ -452,11 +453,12 @@ async function setWidgetVisible(on) {
 }
 const toggleWidget = () => setWidgetVisible(!shown);
 
-async function openSettings(tab) {
+async function openSettings(tab, card) {
   tab = TABS.includes(tab) ? tab : undefined;
   const open = await WebviewWindow.getByLabel('settings');
   if (open) {
     if (tab) T.event.emitTo('settings', 'settings:tab', tab);
+    if (card) T.event.emitTo('settings', 'settings:card', card);
     await open.unminimize(); await open.show(); await open.setFocus();
     return;
   }
@@ -465,7 +467,7 @@ async function openSettings(tab) {
   const c = await T.window.cursorPosition();
   const wa = workArea(await T.window.monitorFromPoint(c.x, c.y) || await T.window.primaryMonitor());
   new WebviewWindow('settings', {
-    url: `settings.html?tab=${tab || 'goal'}`,
+    url: `settings.html?tab=${tab || 'goal'}` + (card ? `&card=${encodeURIComponent(card)}` : ''),
     x: Math.round(wa.x + (wa.width - W) / 2), y: Math.round(wa.y + Math.max(0, (wa.height - H) / 2)),
     width: W, height: H, minWidth: 560, minHeight: 560,
     decorations: false, backgroundColor: '#111218', title: `${APP_NAME} — настройки`,
@@ -601,10 +603,12 @@ const api = {
   getState: () => clone(state),
   setState(patch) {
     patch = clone(patch);
-    const allowed = ['currency', 'target', 'entries', 'game', 'sound', 'wishlist', 'shelf', 'weekGoal', 'tint', 'recap'];
+    const allowed = ['currency', 'target', 'entries', 'game', 'sound', 'wishlist', 'shelf', 'weekGoal', 'tint', 'recap', 'cardMoney'];
     const newGame = patch && 'game' in patch && patch.game && patch.game.url !== state.game?.url;
     const newWish = patch && Array.isArray(patch.wishlist) && patch.wishlist.length > state.wishlist.length;
     for (const k of allowed) if (patch && k in patch) state[k] = patch[k];
+    // Когда игра стала наградой — для карточки «дней от выбора до покупки»
+    if (newGame) state.game.chosenAt = new Date().toISOString();
     changed();
     if (newGame || newWish) setTimeout(() => checkSales(true), 500);
     return clone(state);
@@ -630,6 +634,8 @@ const api = {
   async moveWidgetEnd() { const { x, y } = await widgetPos(); state.widget.x = x; state.widget.y = y; save(); },
   async widgetMenu() { (await buildMenu()).popup(undefined, widget); },
   openSettings: tab => openSettings(tab),
+  // Карточка покупки: окно настроек на полке и сразу диалог карточки
+  openCard: boughtAt => openSettings('shelf', String(boughtAt)),
   buyGame: paid => clone(buyGame(typeof paid === 'number' ? paid : undefined)),
   listBackups: () => backupsInfo(),
   restoreBackup: file => restoreBackup(String(file)).then(clone),

@@ -145,7 +145,8 @@ html, body { background: transparent; overflow: hidden; height: 100%; }
 .banner.open { display: flex; }
 .banner .ico { width: 30px; height: 30px; border-radius: 15px; background: var(--tile); color: #fff; display: grid; place-items: center; flex: none; }
 .banner .ico svg { width: 15px; height: 15px; }
-.banner .bt { min-width: 0; }
+.banner .bt { min-width: 0; flex: 1; }
+.banner .bact { flex: none; height: 28px; padding: 0 12px; border: 0; border-radius: 14px; background: var(--tile); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
 .banner .bk { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
 .banner .bn { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -221,7 +222,7 @@ html, body { background: transparent; overflow: hidden; height: 100%; }
       <button class="icon-btn" type="button" id="buyX" title="Отмена"><svg><use href="#i-x"/></svg></button>
     </form>
 
-    <div class="banner" id="banner"><div class="ico"><svg><use href="#i-star"/></svg></div><div class="bt"><div class="bk" id="bannerKind">Достижение</div><div class="bn" id="bannerText"></div></div></div>
+    <div class="banner" id="banner"><div class="ico"><svg><use href="#i-star"/></svg></div><div class="bt"><div class="bk" id="bannerKind">Достижение</div><div class="bn" id="bannerText"></div></div><button class="bact" id="bannerAct" hidden></button></div>
 
     <div class="unlock" id="unlock">
       <div class="u-glow" id="uGlow"></div>
@@ -379,21 +380,27 @@ $('#buyForm').onsubmit = async ev => {
   closeBuy();
   const title = state.game.title;
   Sfx.unlock(); flow(); glint();
-  showBanner('На полку', title);
   const next = await api.buyGame(paid);
+  // Карточкой покупки можно поделиться прямо из баннера (есть только в версии на Tauri)
+  const bought = api.openCard && (await api.getState()).shelf[0];
+  showBanner('На полку', title, false, bought ? { label: 'Карточка', fn: () => api.openCard(bought.boughtAt) } : null);
   if (next) showBanner('Следующая награда', next.title);
 };
 
 /* ---------- Баннеры: достижения и покупки, по одному ---------- */
 const bannerQueue = [];
 let bannerBusy = false;
-function showBanner(kind, text, sound = false) { bannerQueue.push({ kind, text, sound }); if (!bannerBusy) nextBanner(); }
+// action — кнопка в баннере { label, fn }; такой баннер держится дольше, чтобы успеть нажать
+function showBanner(kind, text, sound = false, action = null) { bannerQueue.push({ kind, text, sound, action }); if (!bannerBusy) nextBanner(); }
 function nextBanner() {
   const item = bannerQueue.shift();
   if (!item) { bannerBusy = false; return; }
   bannerBusy = true;
   const b = $('#banner');
   $('#bannerKind').textContent = item.kind; $('#bannerText').textContent = item.text;
+  const act = $('#bannerAct');
+  act.hidden = !item.action;
+  if (item.action) { act.textContent = item.action.label; act.onclick = () => { Sfx.open(); item.action.fn(); }; }
   if (item.sound) { Sfx.unlock(); flow(); }
   b.classList.add('open');
   anim(b, [{ opacity: 0, transform: 'translateY(-130%)' }, { opacity: 1, transform: 'none' }], { duration: 360, easing: EASE_ENTER });
@@ -402,7 +409,7 @@ function nextBanner() {
     anim(b, [{ opacity: 1 }, { opacity: 0, transform: 'translateY(-60%)' }], { duration: 200, easing: EASE_EXIT }).finished.then(() => {
       b.classList.remove('open'); setTimeout(nextBanner, 150);
     });
-  }, 2800);
+  }, item.action ? 6000 : 2800);
 }
 api.onAchievement(list => list.forEach(a => showBanner('Достижение', a.title, true)));
 api.onBanner((kind, text, sound) => showBanner(kind, text, sound));

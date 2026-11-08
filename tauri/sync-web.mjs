@@ -10,7 +10,7 @@ const web = path.join(here, 'web');
 
 fs.rmSync(web, { recursive: true, force: true });
 fs.mkdirSync(path.join(web, 'assets'), { recursive: true });
-for (const f of ['common.css', 'common.js', 'logic.js']) fs.copyFileSync(path.join(root, f), path.join(web, f));
+for (const f of ['common.css', 'common.js', 'logic.js', 'card.js']) fs.copyFileSync(path.join(root, f), path.join(web, f));
 for (const f of fs.readdirSync(path.join(root, 'assets'))) fs.copyFileSync(path.join(root, 'assets', f), path.join(web, 'assets', f));
 for (const f of ['bridge.js', 'core.js']) fs.copyFileSync(path.join(here, 'shim', f), path.join(web, f));
 await esbuild.build({ entryPoints: [path.join(here, 'shim', 'plugins.js')], bundle: true, format: 'iife', minify: true, outfile: path.join(web, 'plugins.js'), logLevel: 'warning' });

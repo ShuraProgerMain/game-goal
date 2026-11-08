@@ -9,6 +9,7 @@
   window.Bridge = { fire: (name, ...args) => (handlers[name] || []).forEach(fn => fn(...args)) };
   T.event.listen('state:changed', e => Bridge.fire('state', e.payload));
   T.event.listen('settings:tab', e => Bridge.fire('tab', e.payload));
+  T.event.listen('settings:card', e => Bridge.fire('card', e.payload));
 
   let seq = 0;
   const waiting = new Map();
@@ -29,7 +30,7 @@
   const methods = ['getState', 'setState', 'search', 'setOnTop', 'hideWidget', 'showWidget', 'resetWidgetPos',
     'moveWidget', 'moveWidgetEnd', 'widgetMenu', 'openSettings', 'getAutostart', 'setAutostart', 'openUrl',
     'openDataFolder', 'setCompact', 'buyGame', 'listBackups', 'restoreBackup', 'backupNow', 'refreshPrices',
-    'getHotkey', 'setHotkey', 'getSystem', 'setSystem', 'removeFromSystem'];
+    'getHotkey', 'setHotkey', 'getSystem', 'setSystem', 'removeFromSystem', 'openCard'];
   window.api = Object.fromEntries(methods.map(m => [m, (...args) => call(m, ...args)]));
   Object.assign(window.api, {
     onState: fn => on('state', fn),
@@ -38,6 +39,10 @@
     onWidgetQuick: fn => on('quick', fn),
     onAchievement: fn => on('achievement', fn),
     onBanner: fn => on('banner', fn),
+    onCard: fn => on('card', fn),
+    // Карточка: обложка грузится через Rust (с чужого сайта холст иначе нельзя сохранить), PNG сохраняется в «Изображения»
+    imageBytes: async url => { const r = await T.http.fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); },
+    saveCard: (name, png) => T.core.invoke('save_card', { name, png }),
     close: () => me.close(),
     minimize: () => me.minimize(),
   });
