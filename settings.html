@@ -429,6 +429,14 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         В терминале: <b>gg</b> — показать виджет, <b>gg add 1500 превью @Вася</b> — добавить доход, <b>gg stats</b> — статистика, <b>gg settings</b> — настройки.
       </div>
     </section>
+    <section class="sec">
+      <h2>О программе<span class="label num" id="aboutVer"></span></h2>
+      <div class="label info">Game Goal бесплатная, с открытым кодом. Если она помогает тебе копить на игры, можно поддержать её развитие.</div>
+      <div class="row">
+        <button class="btn primary small" id="supportBtn" hidden>Поддержать проект</button>
+        <button class="btn small" id="githubBtn">Страница на GitHub</button>
+      </div>
+    </section>
   </div>
 </main>
 
@@ -961,6 +969,14 @@ if (api.getSystem) {
   renderSystem();
   renderUpdate();
 }
+
+/* ---------- О программе: версия, GitHub, поддержка (кнопка видна, когда задана ссылка) ---------- */
+const SUPPORT_URL = '';
+const REPO_URL = 'https://github.com/ShuraProgerMain/game-goal';
+$('#supportBtn').hidden = !SUPPORT_URL;
+$('#supportBtn').onclick = e => { pop(e.currentTarget); Sfx.open(); api.openUrl(SUPPORT_URL); };
+$('#githubBtn').onclick = e => { pop(e.currentTarget); Sfx.open(); api.openUrl(REPO_URL); };
+if (api.getUpdate) api.getUpdate().then(i => { $('#aboutVer').textContent = i.current; });
 
 /* ---------- Обновление ---------- */
 async function renderUpdate(info) {

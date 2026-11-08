@@ -1,8 +1,14 @@
-// Карточка «Награда заработана»: картинка 1200×675 (в файле — в 1,5 раза крупнее) для Discord, Telegram и т. п.
-// Рисуется на холсте, чтобы её можно было скопировать и сохранить как PNG. Стиль — как у виджета.
+// Карточка «Награда заработана»: картинка для Discord, Telegram и т. п. Рисуется на холсте, чтобы её можно было
+// скопировать и сохранить как PNG. Стили: обычная (как виджет, 1200×675), сторис (1080×1920), минимал (1200×675)
+// и ретро (1200×675).
 (function (root) {
   const W = 1200, H = 675, SCALE = 1.5;
   const FONT = 'Rubik, "Segoe UI", system-ui, sans-serif';
+  // Пиксельный шрифт для «Ретро» (OFL, файл и лицензия в assets), рисуется по сетке 8 px
+  const PIX = '"Press Start 2P", monospace';
+  let pixReady = null;
+  const loadPixel = () => pixReady ||= new FontFace('Press Start 2P', 'url(assets/PressStart2P-Regular.ttf)').load()
+    .then(f => document.fonts.add(f)).catch(() => {});
   const BRAND = { g1: '#4a6beb', g2: '#ed99db', t1: '#385cf2', t2: '#8f70f2', t3: '#f294d1' };
   const C = { text: '#eef0f6', muted: '#bdc2db', dim: '#7d8299', plus: '#7be3b4', blue: '#0db8e6', red: '#f74754' };
   const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 10 || h >= 20) ? b : c; };
@@ -51,27 +57,42 @@
     ctx.drawImage(img, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
   }
 
-  /**
-   * opts: { title, platform, cover (ImageBitmap | null), icon (ImageBitmap | null), colors, stats, money, currency, date }
-   * money — показывать ли заработанное за это время
-   */
-  async function draw(canvas, o) {
-    const col = { ...BRAND, ...(o.colors || {}) };
-    canvas.width = W * SCALE; canvas.height = H * SCALE;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
-    await Promise.all([`700 66px ${FONT}`, `600 15px ${FONT}`, `400 15px ${FONT}`].map(f => document.fonts.load(f).catch(() => {})));
-
-    // Фон: размытая обложка и затемнение к краям
-    ctx.fillStyle = '#08090d'; ctx.fillRect(0, 0, W, H);
+  // Размытая обложка на весь фон и затемнение к краям
+  function blurredBg(ctx, o, w, h, cx = .75, cy = .35) {
+    ctx.fillStyle = '#08090d'; ctx.fillRect(0, 0, w, h);
     if (o.cover) {
       ctx.save(); ctx.filter = 'blur(40px) saturate(150%)'; ctx.globalAlpha = .9;
-      coverFit(ctx, o.cover, -60, -60, W + 120, H + 120);
+      coverFit(ctx, o.cover, -60, -60, w + 120, h + 120);
       ctx.restore();
     }
-    const shade = ctx.createRadialGradient(W * .75, H * .35, 0, W * .75, H * .35, W * .95);
+    const shade = ctx.createRadialGradient(w * cx, h * cy, 0, w * cx, h * cy, Math.max(w, h) * .95);
     shade.addColorStop(0, 'rgba(8, 9, 13, .2)'); shade.addColorStop(1, 'rgba(8, 9, 13, .8)');
-    ctx.fillStyle = shade; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
+  }
+  // Отметка «куплено»: круг с фирменным градиентом и галочкой, вокруг — тёмная обводка
+  function badge(ctx, bx, by, col, r = 32) {
+    ctx.beginPath(); ctx.arc(bx, by, r + 6, 0, Math.PI * 2); ctx.fillStyle = 'rgba(13, 14, 19, .96)'; ctx.fill();
+    ctx.save(); ctx.shadowColor = hexA(col.t1, .55); ctx.shadowBlur = 26; ctx.shadowOffsetY = 10;
+    const tile = ctx.createLinearGradient(bx - r, by - r, bx + r, by + r);
+    tile.addColorStop(0, col.t1); tile.addColorStop(.55, col.t2); tile.addColorStop(1, col.t3);
+    ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fillStyle = tile; ctx.fill();
+    ctx.restore();
+    const k = r / 32;
+    ctx.beginPath(); ctx.moveTo(bx - 9.5 * k, by + k); ctx.lineTo(bx - 3 * k, by + 7.5 * k); ctx.lineTo(bx + 10 * k, by - 6 * k);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 4 * k; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.lineWidth = 1; ctx.lineCap = 'butt';
+  }
+  // Половинки Joy-Con перед надзаголовком
+  function joycons(ctx, x, y, h = 30) {
+    const w = h * 11 / 30, rr = h * 8 / 30;
+    rounded(ctx, x, y, w, h, [rr, 3, 3, rr]); ctx.fillStyle = C.blue; ctx.fill();
+    rounded(ctx, x + w + 3, y, w, h, [3, rr, rr, 3]); ctx.fillStyle = C.red; ctx.fill();
+    return 2 * w + 3;
+  }
+
+  // Обычная — как виджет: стеклянная карточка с переливающимся контуром
+  function drawClassic(ctx, o, col) {
+    blurredBg(ctx, o, W, H);
 
     // Карточка: свечение, переливающийся контур, тёмное стекло
     const X = 44, Y = 44, CW = W - 88, CH = H - 88;
@@ -88,8 +109,7 @@
     const leftW = R - 48 - L;
 
     // Надзаголовок с половинками Joy-Con
-    rounded(ctx, L, T + 2, 11, 30, [8, 3, 3, 8]); ctx.fillStyle = C.blue; ctx.fill();
-    rounded(ctx, L + 14, T + 2, 11, 30, [3, 8, 8, 3]); ctx.fillStyle = C.red; ctx.fill();
+    joycons(ctx, L, T + 2);
     ctx.font = `600 15px ${FONT}`; ctx.letterSpacing = '3.3px'; ctx.fillStyle = C.muted; ctx.textBaseline = 'middle';
     ctx.fillText('НАГРАДА ЗАРАБОТАНА', L + 39, T + 17);
     ctx.letterSpacing = '0px';
@@ -131,16 +151,7 @@
     if (o.cover) coverFit(ctx, o.cover, R, cy, coverW, coverH);
     ctx.restore();
     rounded(ctx, R + .5, cy + .5, coverW - 1, coverH - 1, 26); ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
-    const bx = R + coverW + 14 - 32, by = cy + coverH + 14 - 32;
-    ctx.beginPath(); ctx.arc(bx, by, 38, 0, Math.PI * 2); ctx.fillStyle = 'rgba(13, 14, 19, .96)'; ctx.fill();
-    ctx.save(); ctx.shadowColor = hexA(col.t1, .55); ctx.shadowBlur = 26; ctx.shadowOffsetY = 10;
-    const tile = ctx.createLinearGradient(bx - 32, by - 32, bx + 32, by + 32);
-    tile.addColorStop(0, col.t1); tile.addColorStop(.55, col.t2); tile.addColorStop(1, col.t3);
-    ctx.beginPath(); ctx.arc(bx, by, 32, 0, Math.PI * 2); ctx.fillStyle = tile; ctx.fill();
-    ctx.restore();
-    ctx.beginPath(); ctx.moveTo(bx - 9.5, by + 1); ctx.lineTo(bx - 3, by + 7.5); ctx.lineTo(bx + 10, by - 6);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
-    ctx.lineWidth = 1; ctx.lineCap = 'butt';
+    badge(ctx, R + coverW + 14 - 32, cy + coverH + 14 - 32, col);
 
     // Заработанное — только если пользователь решил его показать
     if (o.money) {
@@ -157,16 +168,294 @@
     const gw = ctx.measureText('Game Goal').width;
     ctx.font = `400 15px ${FONT}`; ctx.fillStyle = C.dim; ctx.fillText('· копилка на игру', L + 45 + gw, fy);
     ctx.textAlign = 'right'; ctx.fillText(o.date, X + CW - 57, fy); ctx.textAlign = 'left';
+  }
+
+  // Подложка карточки как у виджета: свечение, переливающийся контур, тёмное стекло
+  function frame(ctx, col, x, y, w, h, r, cx, cy) {
+    ctx.save();
+    ctx.shadowColor = hexA(col.g1, .3); ctx.shadowBlur = 100;
+    rounded(ctx, x, y, w, h, r); ctx.fillStyle = '#0d0e13'; ctx.fill();
+    ctx.restore();
+    const ring = ctx.createConicGradient(200 * Math.PI / 180, cx, cy);
+    [col.g1, col.g2, col.g1, col.g2, col.g1].forEach((c, i, a) => ring.addColorStop(i / (a.length - 1), c));
+    rounded(ctx, x, y, w, h, r); ctx.fillStyle = ring; ctx.fill();
+    rounded(ctx, x + 3, y + 3, w - 6, h - 6, r - 3); ctx.fillStyle = 'rgba(13, 14, 19, .96)'; ctx.fill();
+  }
+  // Обложка в рамке с тенью
+  function coverBox(ctx, img, x, y, w, h, r) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, .5)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 26;
+    rounded(ctx, x, y, w, h, r); ctx.fillStyle = '#16171f'; ctx.fill();
+    ctx.restore();
+    ctx.save(); rounded(ctx, x, y, w, h, r); ctx.clip();
+    if (img) coverFit(ctx, img, x, y, w, h);
+    ctx.restore();
+    rounded(ctx, x + .5, y + .5, w - 1, h - 1, r); ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+  }
+
+  // Сторис — вертикальная 1080×1920 для историй в Telegram и Instagram
+  function drawStory(ctx, o, col) {
+    const w = 1080, h = 1920, X = 60, Y = 60, CW = w - 120, CH = h - 120;
+    blurredBg(ctx, o, w, h, .5, .3);
+    frame(ctx, col, X, Y, CW, CH, 56, w / 2, h / 2);
+    const L = X + 70, IW = CW - 140, mid = w / 2;
+
+    // Надзаголовок по центру
+    ctx.font = `600 22px ${FONT}`; ctx.letterSpacing = '5px';
+    const tw = ctx.measureText('НАГРАДА ЗАРАБОТАНА').width, jw = 2 * (40 * 11 / 30) + 3;
+    const x0 = mid - (jw + 24 + tw) / 2;
+    joycons(ctx, x0, Y + 110, 40);
+    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText('НАГРАДА ЗАРАБОТАНА', x0 + jw + 24, Y + 131);
+    ctx.letterSpacing = '0px';
+
+    // Обложка: вертикальный постер из библиотеки Steam, если есть, иначе обычная горизонтальная
+    const cw = o.poster ? 500 : IW, ch = o.poster ? 750 : Math.round(IW * 215 / 460), cy = Y + 200, cx = mid - cw / 2;
+    coverBox(ctx, o.poster || o.cover, cx, cy, cw, ch, 34);
+    badge(ctx, cx + cw - 14, cy + ch - 14, col, 46);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = `700 92px ${FONT}`; ctx.fillStyle = C.text;
+    const tl = lines(ctx, o.title, IW);
+    let y = cy + ch + (o.poster ? 140 : 170);
+    tl.forEach((s, i) => ctx.fillText(s, mid, y + i * 98));
+    y += (tl.length - 1) * 98 + 50;
+    ctx.font = `400 26px ${FONT}`;
+    const chipW = ctx.measureText(o.platform).width + 64;
+    rounded(ctx, mid - chipW / 2, y, chipW, 52, 26); ctx.fillStyle = 'rgba(255, 255, 255, .06)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(mid - chipW / 2 + 28, y + 26, 6, 0, Math.PI * 2); ctx.fillStyle = col.t3; ctx.fill();
+    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText(o.platform, mid + 10, y + 27);
+    ctx.textAlign = 'left';
+
+    // Подвал, над ним — заработанное и плитки (снизу вверх)
+    const fy = Y + CH - 80;
+    let bottom = fy - 70;
+    if (o.money) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.font = `400 28px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('заработано за это время', mid, bottom);
+      ctx.font = `700 76px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, mid, bottom - 44);
+      ctx.textAlign = 'left';
+      bottom -= 150;
+    }
+    const tileH = 150, gap = 20;
+    if (o.poster) {
+      const n = o.stats.length, tw = (IW - gap * (n - 1)) / n, ty = bottom - 170;
+      o.stats.forEach((t, i) => {
+        const tx = L + i * (tw + gap);
+        rounded(ctx, tx, ty, tw, 170, 30); ctx.fillStyle = 'rgba(255, 255, 255, .045)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.font = `700 64px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(t.n, tx + tw / 2, ty + 82);
+        ctx.font = `600 28px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(t.u + (t.short ? ` ${t.short}` : ''), tx + tw / 2, ty + 128);
+        ctx.textAlign = 'left';
+      });
+    } else o.stats.slice().reverse().forEach((t, i) => {
+      const ty = bottom - tileH - i * (tileH + gap);
+      rounded(ctx, L, ty, IW, tileH, 30); ctx.fillStyle = 'rgba(255, 255, 255, .045)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = `700 76px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(t.n, L + 40, ty + 100);
+      const nw = ctx.measureText(t.n).width;
+      ctx.font = `600 34px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(t.u, L + 54 + nw, ty + 100);
+      ctx.font = `400 26px ${FONT}`; ctx.fillStyle = C.dim; ctx.textAlign = 'right';
+      ctx.fillText(t.l, L + IW - 40, ty + 98); ctx.textAlign = 'left';
+    });
+
+    ctx.textBaseline = 'middle';
+    ctx.font = `600 26px ${FONT}`;
+    const gw = ctx.measureText('Game Goal').width;
+    ctx.font = `400 26px ${FONT}`;
+    const sub = ` · копилка на игру · ${o.date}`, sw = ctx.measureText(sub).width;
+    const fx = mid - (44 + 14 + gw + sw) / 2;
+    if (o.icon) ctx.drawImage(o.icon, fx, fy - 22, 44, 44);
+    ctx.font = `600 26px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('Game Goal', fx + 58, fy);
+    ctx.font = `400 26px ${FONT}`; ctx.fillStyle = C.dim; ctx.fillText(sub, fx + 58 + gw, fy);
+  }
+
+  // Минимал — большой арт игры на всю картинку, слева название и одна строка цифр
+  function drawMinimal(ctx, o, col) {
+    const w = 1200, h = 675, L = 76;
+    ctx.fillStyle = '#08090d'; ctx.fillRect(0, 0, w, h);
+    const art = o.hero || o.cover;
+    if (art) coverFit(ctx, art, 0, 0, w, h);
+    const side = ctx.createLinearGradient(0, 0, w, 0);
+    side.addColorStop(0, 'rgba(8, 9, 13, .97)'); side.addColorStop(.42, 'rgba(8, 9, 13, .86)');
+    side.addColorStop(.72, 'rgba(8, 9, 13, .25)'); side.addColorStop(1, 'rgba(8, 9, 13, 0)');
+    ctx.fillStyle = side; ctx.fillRect(0, 0, w, h);
+    const low = ctx.createLinearGradient(0, h * .6, 0, h);
+    low.addColorStop(0, 'rgba(8, 9, 13, 0)'); low.addColorStop(1, 'rgba(8, 9, 13, .75)');
+    ctx.fillStyle = low; ctx.fillRect(0, 0, w, h);
+
+    // Полоса цвета обложки слева и надзаголовок
+    const bar = ctx.createLinearGradient(0, 170, 0, 470);
+    bar.addColorStop(0, col.g1); bar.addColorStop(1, col.g2);
+    rounded(ctx, L - 30, 178, 6, 290, 3); ctx.fillStyle = bar; ctx.fill();
+    ctx.font = `600 16px ${FONT}`; ctx.letterSpacing = '4px'; ctx.fillStyle = col.g2; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('ЗАРАБОТАНО', L, 200);
+    ctx.letterSpacing = '0px';
+
+    ctx.font = `700 76px ${FONT}`; ctx.fillStyle = C.text;
+    const tl = lines(ctx, o.title, 600);
+    tl.forEach((s, i) => ctx.fillText(s, L, 282 + i * 80));
+    let y = 282 + (tl.length - 1) * 80 + 62;
+    ctx.font = `400 24px ${FONT}`; ctx.fillStyle = C.muted;
+    ctx.fillText(o.stats.map(t => `${t.n} ${t.u}` + (t.short ? ` ${t.short}` : '')).join('  ·  '), L, y);
+    if (o.money) {
+      y += 52;
+      ctx.font = `700 32px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, L, y);
+      const mw = ctx.measureText(o.money).width;
+      ctx.font = `400 22px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('за это время', L + mw + 14, y);
+    }
+
+    const fy = h - 58;
+    ctx.textBaseline = 'middle';
+    if (o.icon) ctx.drawImage(o.icon, L, fy - 12, 24, 24);
+    ctx.font = `600 15px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('Game Goal', L + 34, fy);
+    const gw = ctx.measureText('Game Goal').width;
+    ctx.font = `400 15px ${FONT}`; ctx.fillStyle = C.dim; ctx.fillText(`· ${o.date}`, L + 42 + gw, fy);
+  }
+
+  // Пиксельный текст: шрифт рисуется в родном размере 8 px без сглаживания и увеличивается блоками по px.
+  // Символов, которых в шрифте нет, — заменяем. Возвращает ширину в логических пикселях
+  const pixSafe = t => t.replace(/[\u00a0\u202f]/g, ' ').replace(/₽/g, 'РУБ').replace(/[«»]/g, '"');
+  function pixelText(ctx, text, x, y, { px = 4, color = '#fff', align = 'left', shadow = null } = {}) {
+    text = pixSafe(text);
+    const m = new OffscreenCanvas(1, 1).getContext('2d');
+    m.font = `8px ${PIX}`;
+    const w = Math.ceil(m.measureText(text).width) + 2, h = 10;
+    const c = new OffscreenCanvas(w, h), g = c.getContext('2d');
+    g.font = m.font; g.textBaseline = 'top'; g.fillStyle = '#fff'; g.fillText(text, 1, 1);  // порог ниже — края без полутонов
+    const d = g.getImageData(0, 0, w, h), [r, gg, b] = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16));
+    for (let i = 0; i < d.data.length; i += 4) {
+      const on = d.data[i + 3] > 110;
+      d.data[i] = r; d.data[i + 1] = gg; d.data[i + 2] = b; d.data[i + 3] = on ? 255 : 0;
+    }
+    g.putImageData(d, 0, 0);
+    const W2 = w * px, x0 = align === 'center' ? x - W2 / 2 : align === 'right' ? x - W2 : x;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (shadow) {  // тень на один «пиксель» вниз и вправо, как в старых играх
+      const sc = new OffscreenCanvas(w, h), sg = sc.getContext('2d');
+      sg.drawImage(c, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = shadow; sg.fillRect(0, 0, w, h);
+      ctx.drawImage(sc, x0 + px, y + px, W2, h * px);
+    }
+    ctx.drawImage(c, x0, y, W2, h * px);
+    ctx.restore();
+    return W2;
+  }
+  // Рамка из «пикселей»: ступенчатые углы, светлая кромка сверху-слева и тёмная снизу-справа
+  function pixelBox(ctx, x, y, w, h, p, fill, light, dark) {
+    ctx.fillStyle = dark; ctx.fillRect(x + p, y + p, w - p, h - p);
+    ctx.fillStyle = light; ctx.fillRect(x, y + p, w - p, h - 2 * p); ctx.fillRect(x + p, y, w - 2 * p, h - p);
+    ctx.fillStyle = fill; ctx.fillRect(x + p, y + p, w - 2 * p, h - 2 * p);
+  }
+  // Монетка 8×8 по сетке
+  function coin(ctx, x, y, p) {
+    const rows = ['..####..', '.#yyyy#.', '#yy##yy#', '#y#yy#y#', '#y#yy#y#', '#yy##yy#', '.#yyyy#.', '..####..'];
+    rows.forEach((row, j) => [...row].forEach((ch, i) => {
+      if (ch === '.') return;
+      ctx.fillStyle = ch === '#' ? '#b8860b' : '#ffd84a'; ctx.fillRect(x + i * p, y + j * p, p, p);
+    }));
+  }
+
+  // Ретро — в духе приставок 8–16 бит: пиксельная обложка, пиксельный шрифт, диалоговое окно, полосы кинескопа
+  function drawRetro(ctx, o, col) {
+    const w = 1200, h = 675, P = 4, gold = '#ffd84a', ink = '#f4f4f8', dim = '#8a90b8', bg = '#0b0d1a';
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    // Экран в рамке цвета обложки
+    pixelBox(ctx, 28, 28, w - 56, h - 56, 8, '#11152b', col.g2, col.g1);
+
+    // Обложка, огрублённая до крупных пикселей и урезанной палитры
+    const cw = 432, ch = 204, cx = 76, cy = 98;
+    ctx.fillStyle = '#000'; ctx.fillRect(cx + 10, cy + 10, cw, ch);
+    if (o.cover) {
+      const sw = cw / P / 2, sh = ch / P / 2, small = new OffscreenCanvas(sw, sh), sg = small.getContext('2d');
+      coverFit(sg, o.cover, 0, 0, sw, sh);
+      const d = sg.getImageData(0, 0, sw, sh);
+      for (let i = 0; i < d.data.length; i += 4) for (let k = 0; k < 3; k++) d.data[i + k] = Math.round(d.data[i + k] / 51) * 51;
+      sg.putImageData(d, 0, 0);
+      ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(small, cx, cy, cw, ch); ctx.restore();
+    }
+    ctx.strokeStyle = ink; ctx.lineWidth = P; ctx.strokeRect(cx - P / 2, cy - P / 2, cw + P, ch + P);
+
+    // Счёт: заработанное за это время
+    if (o.money) {
+      coin(ctx, cx, cy + ch + 46, 5);
+      pixelText(ctx, 'СЧЁТ', cx + 58, cy + ch + 40, { px: 3, color: dim });
+      pixelText(ctx, o.money, cx + 58, cy + ch + 70, { px: 4, color: gold, shadow: '#5a3d00' });
+    }
+
+    // Справа: надзаголовок, название, диалоговое окно со статистикой
+    const R = cx + cw + 60, RW = w - 76 - R;
+    pixelText(ctx, 'НАГРАДА ПОЛУЧЕНА!', R, 98, { px: 3, color: gold });
+    let y = 140;
+    // Название: самый крупный размер букв, при котором оно влезает в две строки
+    const m = new OffscreenCanvas(1, 1).getContext('2d'); m.font = `8px ${PIX}`;
+    let tl = [], tp = 6;
+    for (tp of [6, 5, 4, 3]) {
+      tl = []; let cur = '';
+      for (const wd of pixSafe(o.title.toUpperCase()).split(/\s+/)) {
+        const next = cur ? `${cur} ${wd}` : wd;
+        if (m.measureText(next).width * tp <= RW || !cur) cur = next; else { tl.push(cur); cur = wd; }
+      }
+      if (cur) tl.push(cur);
+      if (tl.length <= 2 && tl.every(t => m.measureText(t).width * tp <= RW)) break;
+    }
+    const lh = tp * 11;
+    tl.slice(0, 2).forEach((t, i) => pixelText(ctx, t, R, y + i * lh, { px: tp, color: ink, shadow: col.g1 }));
+    y += Math.min(tl.length, 2) * lh + 22;
+    pixelText(ctx, o.platform.toUpperCase(), R, y, { px: 3, color: dim });
+
+    const bx = R, by = 352, bw = RW, bh = 196;
+    pixelBox(ctx, bx, by, bw, bh, 6, '#05060d', ink, '#9aa0c8');
+    o.stats.forEach((t, i) => {
+      const ry = by + 30 + i * 52;
+      pixelText(ctx, '>', bx + 26, ry, { px: 3, color: gold });
+      pixelText(ctx, (t.u + (t.short ? ' ' + t.short : '')).toUpperCase(), bx + 62, ry, { px: 3, color: ink });
+      pixelText(ctx, t.n, bx + bw - 30, ry - 6, { px: 4, color: gold, align: 'right' });
+    });
+
+    // Подвал
+    pixelText(ctx, 'GAME GOAL', 76, h - 104, { px: 3, color: col.g2 });
+    pixelText(ctx, o.date.toUpperCase(), w - 76, h - 104, { px: 3, color: dim, align: 'right' });
+
+    // Полосы кинескопа и затемнение углов экрана
+    ctx.fillStyle = 'rgba(0, 0, 0, .13)';
+    for (let sy = 0; sy < h; sy += 3) ctx.fillRect(0, sy, w, 1);
+    const vig = ctx.createRadialGradient(w / 2, h / 2, h * .35, w / 2, h / 2, w * .75);
+    vig.addColorStop(0, 'rgba(0, 0, 0, 0)'); vig.addColorStop(1, 'rgba(0, 0, 0, .55)');
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, w, h);
+  }
+
+  const STYLES = {
+    classic: { name: 'Обычная', w: W, h: H, scale: SCALE, draw: drawClassic },
+    story: { name: 'Сторис', w: 1080, h: 1920, scale: 1, draw: drawStory, pro: true },
+    minimal: { name: 'Минимал', w: 1200, h: 675, scale: 1.5, draw: drawMinimal, pro: true },
+    retro: { name: 'Ретро', w: 1200, h: 675, scale: 1.5, draw: drawRetro, pro: true },
+  };
+  /**
+   * opts: { style, title, platform, cover (ImageBitmap | null), icon (ImageBitmap | null), colors, stats, money,
+   *         date, paid, number } — money показывается, только если пользователь так решил
+   */
+  async function draw(canvas, o) {
+    const st = STYLES[o.style] || STYLES.classic;
+    const col = { ...BRAND, ...(o.colors || {}) };
+    canvas.width = st.w * st.scale; canvas.height = st.h * st.scale;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(st.scale, 0, 0, st.scale, 0, 0);
+    await Promise.all([`700 66px ${FONT}`, `600 15px ${FONT}`, `400 15px ${FONT}`]
+      .map(f => document.fonts.load(f).catch(() => {})));
+    if (o.style === 'retro') await loadPixel();
+    st.draw(ctx, o, col);
     return canvas;
   }
 
   // Плитки из статистики: дни всегда, заказы — если были, недели подряд — от двух
   function tiles(s) {
+    // short — для стилей, где цифры идут одной строкой
     const t = [{ n: String(s.days), u: plural(s.days, 'день', 'дня', 'дней'), l: 'от выбора до покупки' }];
     if (s.orders) t.push({ n: String(s.orders), u: plural(s.orders, 'заказ', 'заказа', 'заказов'), l: 'вложено в копилку' });
-    if (s.streak >= 2) t.push({ n: String(s.streak), u: plural(s.streak, 'неделя', 'недели', 'недель'), l: 'подряд с доходом' });
+    if (s.streak >= 2) t.push({ n: String(s.streak), u: plural(s.streak, 'неделя', 'недели', 'недель'), l: 'подряд с доходом', short: 'подряд' });
     return t;
   }
 
-  root.GameCard = { stats, tiles, draw, W, H };
+  root.GameCard = { stats, tiles, draw, STYLES };
 })(window);
