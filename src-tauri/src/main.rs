@@ -13,7 +13,7 @@ use tauri::{Emitter, Manager};
 
 mod integration;
 
-/// Папка данных: %APPDATA%\game-goal (как у версии на Electron, данные переезжают сами),
+/// Папка данных: %APPDATA%\game-goal (как у версии 1.x на Electron, данные переезжают сами),
 /// либо GAME_GOAL_PROFILE — отдельная папка для проверок, настоящие данные не трогаются
 struct Data {
     dir: PathBuf,

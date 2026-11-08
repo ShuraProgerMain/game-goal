@@ -1,4 +1,4 @@
-// Мост между страницами и ядром: то же window.api, что в Electron давал preload.js.
+// Мост между страницами и ядром: window.api, через которое окна вызывают программу.
 // В виджете вызовы идут прямо в ядро (core.js), в окне настроек — сообщениями в окно виджета.
 (() => {
   const T = window.__TAURI__, me = T.window.getCurrentWindow(), inWidget = me.label === 'widget';

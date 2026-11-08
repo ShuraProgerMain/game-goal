@@ -1,3 +1,7 @@
 node_modules/
 data.json
 *.log
+# сборка: web собирает sync-web.mjs, остальное — Tauri и Rust
+web/
+src-tauri/target/
+src-tauri/gen/
