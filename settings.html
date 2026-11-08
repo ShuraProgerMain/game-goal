@@ -180,6 +180,9 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .cd-styles .btn.on { background: var(--tile); border-color: transparent; color: #fff; }
 .pro-tag { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 216, 74, .16); color: #ffd84a; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
 .cd-panel .btn.dim { opacity: .45; }
+.pro-form { align-items: center; }
+.pro-form .field { flex: 1; min-width: 0; font-family: Consolas, monospace; font-size: 12.5px; }
+.cd-lock .btn { margin-left: 8px; height: 26px; padding: 0 10px; font-size: 12px; }
 .cd-lock { margin-top: 10px; font-size: 12.5px; color: #ffd84a; text-align: center; }
 .cd-panel .opt { border-bottom: 0; }
 .trophy .share { justify-self: start; margin: 2px 3px 0; height: 28px; padding: 0 12px; font-size: 12px; }
@@ -439,6 +442,15 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         В терминале: <b>gg</b> — показать виджет, <b>gg add 1500 превью @Вася</b> — добавить доход, <b>gg stats</b> — статистика, <b>gg settings</b> — настройки.
       </div>
     </section>
+    <section class="sec" id="proSec" hidden>
+      <h2>Game Goal Pro<span class="label" id="proBadge"></span></h2>
+      <div class="label info" id="proInfo"></div>
+      <div class="row pro-form" id="proForm">
+        <input class="field" id="proKey" placeholder="GGPRO-…" spellcheck="false" autocomplete="off">
+        <button class="btn small primary" id="proActivate">Активировать</button>
+      </div>
+      <div class="row" id="proOn" hidden><button class="btn small" id="proRemove">Убрать ключ</button></div>
+    </section>
     <section class="sec">
       <h2>О программе<span class="label num" id="aboutVer"></span></h2>
       <div class="label info">Game Goal бесплатная, с открытым кодом. Если она помогает тебе копить на игры, можно поддержать её развитие.</div>
@@ -459,7 +471,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
     <div class="cd-styles" id="cardYears" hidden></div>
     <div class="cd-styles" id="cardStyles"></div>
     <canvas id="cardCanvas"></canvas>
-    <div class="cd-lock" id="cardLock" hidden>Этот стиль — в Game Goal Pro: посмотреть можно, скопировать и сохранить — с Pro.</div>
+    <div class="cd-lock" id="cardLock" hidden>Этот стиль — в Game Goal Pro: посмотреть можно, скопировать и сохранить — с Pro.<button class="btn small" id="cardEnterKey">Ввести ключ</button></div>
     <div class="opt">
       <div><div>Показывать заработанное</div><div class="d">Сумма, которую ты заработал, пока копил на эту игру.</div></div>
       <label class="switch"><input type="checkbox" id="cardMoney"><span class="tr"></span><span class="kn"></span></label>
@@ -992,6 +1004,34 @@ $('#supportBtn').onclick = e => { pop(e.currentTarget); Sfx.open(); api.openUrl(
 $('#githubBtn').onclick = e => { pop(e.currentTarget); Sfx.open(); api.openUrl(REPO_URL); };
 if (api.getUpdate) api.getUpdate().then(i => { $('#aboutVer').textContent = i.current; });
 
+/* ---------- Game Goal Pro: ключ проверяется подписью прямо в программе ---------- */
+function renderPro() {
+  if (!api.activatePro) return;
+  const on = proActive();
+  $('#proSec').hidden = false;
+  $('#proForm').hidden = on; $('#proOn').hidden = !on;
+  $('#proBadge').textContent = on ? 'активен' : '';
+  $('#proInfo').textContent = on
+    ? `Спасибо${state.pro.name ? ', ' + state.pro.name : ''}! Открыты все стили карточек и итогов года. Ключ выдан ${cardDate(state.pro.issued)}.`
+    : 'Pro открывает стили карточки «Сторис», «Минимал» и «Ретро» и вертикальные итоги года. Ключ выдаётся тем, кто поддержал проект.';
+}
+if (api.activatePro) {
+  $('#proActivate').onclick = async e => {
+    const b = e.currentTarget; pop(b); b.disabled = true;
+    try {
+      await api.activatePro($('#proKey').value);
+      $('#proKey').value = ''; Sfx.unlock(); toast('Pro активирован — спасибо за поддержку!');
+    } catch (err) { Sfx.remove(); shake($('#proKey')); toast(`Не получилось: ${err.message}`); }
+    finally { b.disabled = false; }
+  };
+  $('#proKey').onkeydown = e => { if (e.key === 'Enter') $('#proActivate').click(); };
+  $('#proRemove').onclick = e => { pop(e.currentTarget); Sfx.close(); api.deactivatePro(); toast('Ключ Pro убран'); };
+  $('#cardEnterKey').onclick = () => {
+    closeCard(); setTab('widget');
+    setTimeout(() => { $('#proSec').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('#proKey').focus(); }, 200);
+  };
+}
+
 /* ---------- Обновление ---------- */
 async function renderUpdate(info) {
   info = info || await api.getUpdate();
@@ -1232,7 +1272,8 @@ addEventListener('keydown', e => {
   $('#optAuto').checked = await api.getAutostart();
   renderHotkey();
   render();
-  api.onState(s => { state = s; render(); if (pendingNew) { renderList(pendingNew); pendingNew = null; } if (api.getUpdate) renderUpdate(); });
+  renderPro();
+  api.onState(s => { state = s; render(); if (pendingNew) { renderList(pendingNew); pendingNew = null; } if (api.getUpdate) renderUpdate(); renderPro(); if (cardOn && !$('#cardDlg').hidden) markLocked(); });
   await document.fonts.ready;
   setTab(tab, false);
   setSrc(state.game && state.game.source === 'nintendo' ? 'nintendo' : 'steam', false);

@@ -27,6 +27,8 @@ const DEFAULTS = {
   widget: { x: null, y: null, onTop: true, visible: true, compact: false },
   // Программа без установщика: что она прописывает в систему сама и для какого места exe это сделано
   system: { startMenu: true, gg: true, exe: '' },
+  // Game Goal Pro: ключ и то, что из него прочитано при проверке подписи (кому и когда выдан)
+  proKey: '', pro: null,
 };
 
 let env, state, tray = null, trayMenu = null, hotkeyError = '', restoredFrom = null, shown = false, quitting = false;
@@ -554,6 +556,18 @@ async function installUpdate() {
   try { await invoke('update_install'); } catch (e) { quitting = false; log('обновление', e); throw e; }
 }
 
+/* ---------- Game Goal Pro: подпись ключа проверяется в Rust (pro.rs), без интернета ---------- */
+async function verifyPro(key) {
+  try { return await invoke('pro_verify', { key }); } catch (e) { throw new Error(String(e?.message || e)); }
+}
+async function activatePro(key) {
+  const info = await verifyPro(String(key || ''));
+  state.proKey = String(key).replace(/\s+/g, ''); state.pro = info;
+  save(); broadcast();
+  return info;
+}
+function deactivatePro() { state.proKey = ''; state.pro = null; save(); broadcast(); }
+
 async function setOnTop(on) {
   state.widget.onTop = on; save();
   await widget.setAlwaysOnTop(on);
@@ -687,12 +701,16 @@ const api = {
   getUpdate: () => updateInfo(),
   checkUpdate: async () => { await checkUpdate(true); return updateInfo(); },
   installUpdate: () => installUpdate(),
+  activatePro: key => activatePro(key),
+  deactivatePro: () => deactivatePro(),
 };
 
 /* ---------- Запуск ---------- */
 async function start() {
   env = await invoke('env_info');
   state = await load();
+  // Pro — только по ключу с верной подписью: отметку в data.json проверяем заново при каждом запуске
+  state.pro = state.proKey ? await verifyPro(state.proKey).catch(() => null) : null;
   // Первый запуск этой версии: автозапуск включается, как раньше это делал установщик
   if (!state.autostartSet) { state.autostartSet = true; await setAutostart(true); }
   checkAchievements(); save();
