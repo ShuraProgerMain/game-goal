@@ -1,0 +1,13 @@
+{
+  "name": "game-goal-tauri",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync-web.mjs",
+    "dev": "node sync-web.mjs && tauri dev",
+    "build": "node sync-web.mjs && tauri build --no-bundle"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

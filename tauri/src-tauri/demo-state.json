@@ -1,0 +1,221 @@
+{
+ "currency": "₽",
+ "target": 25000,
+ "entries": [
+  {
+   "id": 1,
+   "amount": 1500,
+   "note": "превью",
+   "client": "Вася Пупкин",
+   "date": "2026-09-12T00:11:49.165Z"
+  },
+  {
+   "id": 2,
+   "amount": 3000,
+   "note": "монтаж влога",
+   "client": "Студия Кадр",
+   "date": "2026-09-16T00:11:49.165Z"
+  },
+  {
+   "id": 3,
+   "amount": 800,
+   "note": "шортсы",
+   "client": "Вася Пупкин",
+   "date": "2026-09-23T00:11:49.165Z"
+  },
+  {
+   "id": 4,
+   "amount": 2500,
+   "note": "клип",
+   "client": "Аня",
+   "date": "2026-09-27T00:11:49.165Z"
+  },
+  {
+   "id": 5,
+   "amount": 1200,
+   "note": "превью",
+   "client": "Вася Пупкин",
+   "date": "2026-10-01T00:11:49.165Z"
+  },
+  {
+   "id": 6,
+   "amount": 4000,
+   "note": "реклама",
+   "client": "Студия Кадр",
+   "date": "2026-10-07T00:11:49.165Z"
+  },
+  {
+   "id": 7,
+   "amount": 900,
+   "note": "шортсы",
+   "client": "Аня",
+   "date": "2026-10-12T00:11:49.165Z"
+  },
+  {
+   "id": 8,
+   "amount": 2000,
+   "note": "монтаж влога",
+   "client": "Студия Кадр",
+   "date": "2026-10-16T00:11:49.165Z"
+  },
+  {
+   "id": 9,
+   "amount": 1500,
+   "note": "превью",
+   "client": "Вася Пупкин",
+   "date": "2026-10-22T00:11:49.165Z"
+  },
+  {
+   "id": 10,
+   "amount": 2200,
+   "note": "подкаст",
+   "client": "Миша",
+   "date": "2026-10-26T00:11:49.165Z"
+  },
+  {
+   "id": 11,
+   "amount": 1800,
+   "note": "шортсы",
+   "client": "Аня",
+   "date": "2026-10-30T00:11:49.165Z"
+  },
+  {
+   "id": 12,
+   "amount": 1000,
+   "note": "превью",
+   "client": "Вася Пупкин",
+   "date": "2026-11-01T00:11:49.165Z"
+  },
+  {
+   "id": 1793664772679,
+   "amount": 1500,
+   "note": "превью",
+   "client": "Вася Пупкин",
+   "date": "2026-11-03T00:12:52.679Z"
+  },
+  {
+   "id": 1793664777256,
+   "amount": 1200,
+   "note": "шортсы",
+   "client": "Аня",
+   "date": "2026-11-03T00:12:57.256Z"
+  },
+  {
+   "id": 1793669871021,
+   "amount": 2500,
+   "note": "монтаж",
+   "client": "Аня",
+   "date": "2026-11-03T01:37:51.021Z"
+  }
+ ],
+ "game": {
+  "source": "steam",
+  "platform": "Steam",
+  "url": "https://store.steampowered.com/app/1145350/",
+  "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145350/10c9138570a8d7ac9144f601ab0f2ccbc820337e/header.jpg",
+  "fallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145350/10c9138570a8d7ac9144f601ab0f2ccbc820337e/capsule_231x87.jpg",
+  "title": "Hades II",
+  "price": 1100,
+  "sale": {
+   "percent": 20,
+   "final": 880,
+   "regular": 1100,
+   "currency": "RUB",
+   "checkedAt": "2026-11-03T00:12:19.409Z"
+  },
+  "colors": {
+   "g1": "#228764",
+   "g2": "#5cb7d6",
+   "t1": "#1e7658",
+   "t2": "#25938e",
+   "t3": "#58b5d5"
+  },
+  "colorsFor": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145350/10c9138570a8d7ac9144f601ab0f2ccbc820337e/header.jpg"
+ },
+ "sound": false,
+ "wishlist": [
+  {
+   "source": "steam",
+   "platform": "Steam",
+   "url": "https://store.steampowered.com/app/1030300/",
+   "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1030300/b73ec03fbdb9e21e3c59eb7e59966949d0c17f29/header.jpg",
+   "fallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1030300/b73ec03fbdb9e21e3c59eb7e59966949d0c17f29/capsule_231x87.jpg",
+   "title": "Hollow Knight: Silksong",
+   "price": 710
+  }
+ ],
+ "shelf": [
+  {
+   "source": "steam",
+   "platform": "Steam",
+   "url": "https://store.steampowered.com/app/504230/",
+   "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/504230/header.jpg",
+   "fallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/504230/capsule_231x87.jpg",
+   "title": "Celeste",
+   "price": 849,
+   "paid": 849,
+   "boughtAt": "2026-10-14T00:12:19.409Z"
+  },
+  {
+   "source": "steam",
+   "platform": "Steam",
+   "url": "https://store.steampowered.com/app/367520/",
+   "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/367520/fba7289f4c7e90ae9c0caa87e4225f3f9111d7dd/header.jpg",
+   "fallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/367520/fba7289f4c7e90ae9c0caa87e4225f3f9111d7dd/capsule_231x87.jpg",
+   "title": "Hollow Knight",
+   "price": 550,
+   "paid": 400,
+   "onSale": true,
+   "boughtAt": "2026-09-19T00:12:19.409Z"
+  },
+  {
+   "source": "steam",
+   "platform": "Steam",
+   "url": "https://store.steampowered.com/app/413150/",
+   "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/413150/header.jpg",
+   "fallback": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/413150/capsule_231x87.jpg",
+   "title": "Stardew Valley",
+   "price": 299,
+   "paid": 299,
+   "boughtAt": "2026-09-04T00:12:19.409Z"
+  }
+ ],
+ "achievements": {
+  "first": "2026-11-03T00:12:44.916Z",
+  "k10": "2026-11-03T00:12:44.916Z",
+  "half": "2026-11-03T00:12:44.916Z",
+  "streak3": "2026-11-03T00:12:44.916Z",
+  "streak8": "2026-11-03T00:12:44.916Z",
+  "clients3": "2026-11-03T00:12:44.916Z",
+  "buy1": "2026-11-03T00:12:44.916Z",
+  "buy3": "2026-11-03T00:12:44.916Z",
+  "sale": "2026-11-03T00:12:44.917Z",
+  "goal": "2026-11-03T00:12:57.257Z"
+ },
+ "hotkey": false,
+ "rates": {
+  "values": {
+   "RUB": 1,
+   "BYN": 27.4031,
+   "USD": 80.9734,
+   "EUR": 90.4635,
+   "KZT": 0.17840699999999998,
+   "UAH": 1.7854199999999998
+  },
+  "date": "03.11.2026",
+  "fetchedAt": 1793664726130
+ },
+ "salesCheckedAt": 1793664739409,
+ "weekGoal": 5000,
+ "weekGoalHit": 1793566800000,
+ "tint": true,
+ "recap": true,
+ "recapFor": 1793566800000,
+ "widget": {
+  "x": 200,
+  "y": 200,
+  "onTop": true,
+  "visible": true,
+  "compact": false
+ }
+}
