@@ -13,7 +13,8 @@
   ; Команда gg: папка WindowsApps уже есть в PATH у каждого пользователя Windows 10/11
   FileOpen $0 "$LOCALAPPDATA\Microsoft\WindowsApps\gg.cmd" w
   FileWrite $0 '@echo off$\r$\n'
-  FileWrite $0 'rem Game Goal: gg, gg settings, gg stats, gg add 1500 за превью @Вася$\r$\n'
+  ; NSIS пишет файл в кодировке ANSI, поэтому в самом gg.cmd — только латиница
+  FileWrite $0 'rem Game Goal: gg, gg settings, gg stats, gg add 1500 note @client$\r$\n'
   FileWrite $0 '"$INSTDIR\${MAINBINARYNAME}.exe" %*$\r$\n'
   FileWrite $0 'if not "%~1"=="" echo OK: %*$\r$\n'
   FileClose $0
