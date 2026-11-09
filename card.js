@@ -26,7 +26,14 @@
       orders: inside.length,
       earned: inside.reduce((a, e) => a + e.amount, 0),
       streak: Logic.streakWeeks(state, end),
+      start, end, list: inside,
+      achievements: achievementsIn(state, start, end),
     };
+  }
+  // Названия достижений, открытых за время [from, to] (дата покупки — до конца того же дня)
+  function achievementsIn(state, from, to) {
+    const got = state.achievements || {};
+    return Logic.ACHIEVEMENTS.filter(a => { const t = Date.parse(got[a.id]); return t >= from && t <= to + Logic.DAY; }).map(a => a.title);
   }
 
   function rounded(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
@@ -193,31 +200,120 @@
     rounded(ctx, x + .5, y + .5, w - 1, h - 1, r); ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
   }
 
-  // Сторис — вертикальная 1080×1920 для историй в Telegram и Instagram
+  // Пятиконечная звезда — значок достижения
+  function star(ctx, cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r;
+      ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+  }
+  // Плашки достижений: звезда в фирменном градиенте и название; переносятся не больше чем на rows строк, возвращают высоту
+  function achChips(ctx, titles, x, y, maxW, size, col, rows = 1) {
+    const h = Math.round(size * 2.3), pad = Math.round(size * .9), gap = Math.round(size * .55);
+    let cx = x, cy = y;
+    ctx.font = `600 ${size}px ${FONT}`;
+    for (const t of titles) {
+      const w = h + ctx.measureText(t).width + pad;
+      if (cx > x && cx + w > x + maxW) {
+        if (--rows < 1) break;
+        cx = x; cy += h + gap;
+      }
+      rounded(ctx, cx, cy, w, h, h / 2); ctx.fillStyle = 'rgba(255, 255, 255, .06)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+      const g = ctx.createLinearGradient(cx, cy, cx + h, cy + h);
+      g.addColorStop(0, col.t1); g.addColorStop(1, col.t3);
+      ctx.beginPath(); ctx.arc(cx + h / 2, cy + h / 2, h * .34, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      star(ctx, cx + h / 2, cy + h / 2 + .5, h * .19); ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.fillStyle = C.text; ctx.textBaseline = 'middle'; ctx.fillText(t, cx + h * .92, cy + h / 2 + 1);
+      cx += w + gap;
+    }
+    return titles.length ? cy + h - y : 0;
+  }
+  // «Как копилось»: сумма заказов от выбора награды до покупки ступеньками, в конце — отметка «куплено».
+  // Чисел нет — только форма, поэтому годится и со скрытыми деньгами
+  function journey(ctx, s, x, y, w, h, col, label) {
+    const pts = s.list.map(e => ({ t: Date.parse(e.date), a: e.amount })).sort((a, b) => a.t - b.t);
+    const t0 = s.start, t1 = Math.max(s.end, t0 + Logic.DAY), total = pts.reduce((a, p) => a + p.a, 0) || 1;
+    const X = t => x + Math.min(1, Math.max(0, (t - t0) / (t1 - t0))) * w, Y = v => y + h - v / total * h * .92;
+    const path = () => {
+      let cum = 0;
+      ctx.beginPath(); ctx.moveTo(x, y + h);
+      for (const p of pts) { ctx.lineTo(X(p.t), Y(cum)); cum += p.a; ctx.lineTo(X(p.t), Y(cum)); }
+      ctx.lineTo(x + w, Y(cum));
+    };
+    // сетка
+    ctx.strokeStyle = 'rgba(255, 255, 255, .06)'; ctx.lineWidth = 1;
+    for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(x, y + h * i / 4); ctx.lineTo(x + w, y + h * i / 4); ctx.stroke(); }
+    // заливка под линией
+    path(); ctx.lineTo(x + w, y + h); ctx.closePath();
+    const fill = ctx.createLinearGradient(0, y, 0, y + h);
+    fill.addColorStop(0, hexA(col.t2, .32)); fill.addColorStop(1, hexA(col.t2, 0));
+    ctx.fillStyle = fill; ctx.fill();
+    // линия
+    path();
+    const stroke = ctx.createLinearGradient(x, 0, x + w, 0);
+    stroke.addColorStop(0, col.t1); stroke.addColorStop(1, col.t3);
+    ctx.strokeStyle = stroke; ctx.lineWidth = Math.max(3, h / 60); ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.lineWidth = 1;
+    // заказы — точки на ступеньках
+    let cum = 0;
+    for (const p of pts) { cum += p.a; ctx.beginPath(); ctx.arc(X(p.t), Y(cum), Math.max(4, h / 45), 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); }
+    badge(ctx, x + w, Y(total), col, Math.max(16, h / 9));
+    // даты начала и покупки
+    const d = t => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+    ctx.font = `400 ${label}px ${FONT}`; ctx.fillStyle = C.dim; ctx.textBaseline = 'top';
+    ctx.textAlign = 'left'; ctx.fillText(d(t0), x, y + h + label * .7);
+    ctx.textAlign = 'right'; ctx.fillText(d(s.end), x + w, y + h + label * .7); ctx.textAlign = 'left';
+  }
+  // Доход по месяцам: столбики без чисел, самый сильный месяц — в фирменном градиенте, остальные нейтральные
+  const MON = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  function monthBars(ctx, byMonth, x, y, w, h, col, label) {
+    const max = Math.max(...byMonth), best = max > 0 ? byMonth.indexOf(max) : -1;
+    const gap = w * .025, bw = (w - gap * 11) / 12, ch = h - label * 1.9;
+    byMonth.forEach((v, i) => {
+      const bh = Math.max(4, max ? v / max * ch : 0), bx = x + i * (bw + gap), by = y + ch - bh;
+      rounded(ctx, bx, by, bw, bh, [Math.min(8, bw / 3), Math.min(8, bw / 3), 3, 3]);
+      if (i === best) {
+        const g = ctx.createLinearGradient(0, by, 0, by + bh);
+        g.addColorStop(0, col.t3); g.addColorStop(1, col.t1); ctx.fillStyle = g;
+      } else ctx.fillStyle = v ? 'rgba(255, 255, 255, .16)' : 'rgba(255, 255, 255, .06)';
+      ctx.fill();
+      ctx.font = `${i === best ? 600 : 400} ${label}px ${FONT}`; ctx.fillStyle = i === best ? C.text : C.dim;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(MON[i], bx + bw / 2, y + ch + label * .55);
+    });
+    ctx.textAlign = 'left';
+  }
+  function sectionLabel(ctx, text, x, y, size) {
+    ctx.font = `600 ${size}px ${FONT}`; ctx.fillStyle = C.muted; ctx.textBaseline = 'alphabetic'; ctx.fillText(text, x, y);
+  }
+
+  // Сторис — вертикальная 1080×1920: постер, название, «как копилось», плитки, достижения за это время
   function drawStory(ctx, o, col) {
     const w = 1080, h = 1920, X = 60, Y = 60, CW = w - 120, CH = h - 120;
     blurredBg(ctx, o, w, h, .5, .3);
     frame(ctx, col, X, Y, CW, CH, 56, w / 2, h / 2);
     const L = X + 70, IW = CW - 140, mid = w / 2;
 
-    // Надзаголовок по центру
     ctx.font = `600 22px ${FONT}`; ctx.letterSpacing = '5px';
     const tw = ctx.measureText('НАГРАДА ЗАРАБОТАНА').width, jw = 2 * (40 * 11 / 30) + 3;
     const x0 = mid - (jw + 24 + tw) / 2;
-    joycons(ctx, x0, Y + 110, 40);
-    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText('НАГРАДА ЗАРАБОТАНА', x0 + jw + 24, Y + 131);
+    joycons(ctx, x0, Y + 90, 40);
+    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText('НАГРАДА ЗАРАБОТАНА', x0 + jw + 24, Y + 111);
     ctx.letterSpacing = '0px';
 
-    // Обложка: вертикальный постер из библиотеки Steam, если есть, иначе обычная горизонтальная
-    const cw = o.poster ? 500 : IW, ch = o.poster ? 750 : Math.round(IW * 215 / 460), cy = Y + 200, cx = mid - cw / 2;
-    coverBox(ctx, o.poster || o.cover, cx, cy, cw, ch, 34);
-    badge(ctx, cx + cw - 14, cy + ch - 14, col, 46);
+    // Постер (вертикальный из Steam) или обычная обложка
+    const cw = o.poster ? 380 : IW, ch = o.poster ? 570 : Math.round(IW * 215 / 460), cy = Y + 170, cx = mid - cw / 2;
+    coverBox(ctx, o.poster || o.cover, cx, cy, cw, ch, 30);
+    badge(ctx, cx + cw - 12, cy + ch - 12, col, 42);
+
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.font = `700 92px ${FONT}`; ctx.fillStyle = C.text;
+    ctx.font = `700 84px ${FONT}`; ctx.fillStyle = C.text;
     const tl = lines(ctx, o.title, IW);
-    let y = cy + ch + (o.poster ? 140 : 170);
-    tl.forEach((s, i) => ctx.fillText(s, mid, y + i * 98));
-    y += (tl.length - 1) * 98 + 50;
+    let y = cy + ch + 115;
+    tl.forEach((s, i) => ctx.fillText(s, mid, y + i * 90));
+    y += (tl.length - 1) * 90 + 40;
     ctx.font = `400 26px ${FONT}`;
     const chipW = ctx.measureText(o.platform).width + 64;
     rounded(ctx, mid - chipW / 2, y, chipW, 52, 26); ctx.fillStyle = 'rgba(255, 255, 255, .06)'; ctx.fill();
@@ -226,40 +322,34 @@
     ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText(o.platform, mid + 10, y + 27);
     ctx.textAlign = 'left';
 
-    // Подвал, над ним — заработанное и плитки (снизу вверх)
-    const fy = Y + CH - 80;
-    let bottom = fy - 70;
+    // Как копилось: подпись, сумма справа (если показываем), график
+    y += 130;
+    sectionLabel(ctx, 'Как копилось', L, y, 28);
     if (o.money) {
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.font = `400 28px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('заработано за это время', mid, bottom);
-      ctx.font = `700 76px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, mid, bottom - 44);
-      ctx.textAlign = 'left';
-      bottom -= 150;
+      ctx.font = `700 40px ${FONT}`; ctx.fillStyle = C.plus; ctx.textAlign = 'right'; ctx.fillText(o.money, L + IW, y + 4); ctx.textAlign = 'left';
     }
-    const tileH = 150, gap = 20;
-    if (o.poster) {
-      const n = o.stats.length, tw = (IW - gap * (n - 1)) / n, ty = bottom - 170;
-      o.stats.forEach((t, i) => {
-        const tx = L + i * (tw + gap);
-        rounded(ctx, tx, ty, tw, 170, 30); ctx.fillStyle = 'rgba(255, 255, 255, .045)'; ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
-        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        ctx.font = `700 64px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(t.n, tx + tw / 2, ty + 82);
-        ctx.font = `600 28px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(t.u + (t.short ? ` ${t.short}` : ''), tx + tw / 2, ty + 128);
-        ctx.textAlign = 'left';
-      });
-    } else o.stats.slice().reverse().forEach((t, i) => {
-      const ty = bottom - tileH - i * (tileH + gap);
-      rounded(ctx, L, ty, IW, tileH, 30); ctx.fillStyle = 'rgba(255, 255, 255, .045)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
-      ctx.textBaseline = 'alphabetic';
-      ctx.font = `700 76px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(t.n, L + 40, ty + 100);
-      const nw = ctx.measureText(t.n).width;
-      ctx.font = `600 34px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(t.u, L + 54 + nw, ty + 100);
-      ctx.font = `400 26px ${FONT}`; ctx.fillStyle = C.dim; ctx.textAlign = 'right';
-      ctx.fillText(t.l, L + IW - 40, ty + 98); ctx.textAlign = 'left';
-    });
+    const chartH = tl.length > 1 ? 190 : 250;
+    if (o.raw && o.raw.list.length) journey(ctx, o.raw, L, y + 36, IW - 30, chartH, col, 22);
+    y += 36 + chartH + 70;
 
+    // Плитки в ряд
+    const n = o.stats.length, gap = 20, tw2 = (IW - gap * (n - 1)) / n, th = 150;
+    o.stats.forEach((t, i) => {
+      const tx = L + i * (tw2 + gap);
+      rounded(ctx, tx, y, tw2, th, 28); ctx.fillStyle = 'rgba(255, 255, 255, .045)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, .08)'; ctx.stroke();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.font = `700 60px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(t.n, tx + tw2 / 2, y + 76);
+      ctx.font = `600 26px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(t.u + (t.short ? ` ${t.short}` : ''), tx + tw2 / 2, y + 118);
+      ctx.textAlign = 'left';
+    });
+    y += th + 44;
+
+    // Достижения, открытые, пока копилась эта игра
+    const ach = (o.raw && o.raw.achievements || []).slice(0, 4);
+    if (ach.length) achChips(ctx, ach, L, y, IW, 24, col);
+
+    const fy = Y + CH - 64;
     ctx.textBaseline = 'middle';
     ctx.font = `600 26px ${FONT}`;
     const gw = ctx.measureText('Game Goal').width;
@@ -473,7 +563,8 @@
     const top = Math.max(...byMonth);
     return {
       year, games, orders: incomes.length, earned: incomes.reduce((a, e) => a + e.amount, 0), streak, fastest,
-      bestMonth: top > 0 ? MONTHS[byMonth.indexOf(top)] : null,
+      bestMonth: top > 0 ? MONTHS[byMonth.indexOf(top)] : null, byMonth,
+      achievements: achievementsIn(state, new Date(year, 0, 1).getTime(), new Date(year, 11, 31).getTime()),
     };
   }
   // Годы, за которые есть что показать: доходы или покупки; свежий — первым
@@ -516,19 +607,18 @@
     ctx.fillText(lines(ctx, t.l, w * .86, 1)[0], x + w * .07, y + h * .78);
   }
 
-  // Итоги года, обычная — 1200×675: слева заголовок и плитки, справа полка обложками
+  // Итоги года, обычная — 1200×675: слева главная цифра и плитки, справа обложки, доход по месяцам и достижения
   function drawYearClassic(ctx, o, col) {
     const y = o.year, X = 44, Y = 44, CW = W - 88, CH = H - 88;
     blurredBg(ctx, o, W, H);
     frame(ctx, col, X, Y, CW, CH, 40, W / 2, H / 2);
-    const L = X + 57, T = Y + 53, gridW = 470, R = X + CW - 57 - gridW, leftW = R - 44 - L;
+    const L = X + 57, T = Y + 53, RW = 470, R = X + CW - 57 - RW, leftW = R - 44 - L;
 
     joycons(ctx, L, T + 2);
     ctx.font = `600 15px ${FONT}`; ctx.letterSpacing = '3.3px'; ctx.fillStyle = C.muted; ctx.textBaseline = 'middle';
     ctx.fillText(`ИТОГИ ${y.year} ГОДА`, L + 39, T + 17);
     ctx.letterSpacing = '0px';
 
-    // Главная цифра — сколько игр заработано
     const n = y.games.length;
     ctx.textBaseline = 'alphabetic';
     ctx.font = `700 110px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(String(n), L - 4, T + 150);
@@ -540,15 +630,15 @@
       const mw = ctx.measureText(o.money).width;
       ctx.font = `400 18px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('доход за год', L + mw + 12, T + 200);
     }
+    const gap = 12, th = 96, tw = (leftW - gap) / 2, ty0 = Y + CH - 40 - 30 - 26 - (th * 2 + gap);
+    o.tiles.forEach((t, i) => yearTile(ctx, t, L + (i % 2) * (tw + gap), ty0 + Math.floor(i / 2) * (th + gap), tw, th, 34, 16, 13));
 
-    // Плитки 2×2 внизу слева
-    const tiles = o.tiles, gap = 12, th = 96, tw = (leftW - gap) / 2, ty0 = Y + CH - 40 - 30 - 26 - (th * 2 + gap);
-    tiles.forEach((t, i) => yearTile(ctx, t, L + (i % 2) * (tw + gap), ty0 + Math.floor(i / 2) * (th + gap), tw, th, 34, 16, 13));
-
-    // Полка обложками справа
-    const cols = 2, rows = 3, cg = 12, cw = (gridW - cg) / cols, ch = Math.round(cw * 215 / 460);
-    const used = Math.min(rows, Math.ceil(n / cols)), gh = used * ch + (used - 1) * cg, gy = Y + (CH - 66 - gh) / 2;
-    if (n) coverGrid(ctx, o.covers, n, R, gy, cols, rows, cw, ch, cg);
+    // Справа: обложки одной полосой, под ними доход по месяцам и достижения года
+    const cg = 10, cw = (RW - cg * 3) / 4, ch = Math.round(cw * 215 / 460);
+    if (n) coverGrid(ctx, o.covers, n, R, T, 4, 1, cw, ch, cg);
+    sectionLabel(ctx, 'Доход по месяцам', R, T + ch + 52, 15);
+    monthBars(ctx, y.byMonth, R, T + ch + 70, RW, 230, col, 13);
+    if (y.achievements.length) achChips(ctx, y.achievements, R, T + ch + 334, RW, 13, col);
 
     const fy = Y + CH - 40 - 13;
     if (o.icon) ctx.drawImage(o.icon, L, fy - 13, 26, 26);
@@ -559,7 +649,7 @@
     ctx.textAlign = 'right'; ctx.fillText(String(y.year), X + CW - 57, fy); ctx.textAlign = 'left';
   }
 
-  // Итоги года, сторис — 1080×1920: большая цифра, полка обложками, плитки
+  // Итоги года, сторис — 1080×1920: цифра года, обложки, доход по месяцам, плитки, достижения
   function drawYearStory(ctx, o, col) {
     const y = o.year, w = 1080, h = 1920, X = 60, Y = 60, CW = w - 120, CH = h - 120, mid = w / 2;
     blurredBg(ctx, o, w, h, .5, .3);
@@ -569,31 +659,40 @@
     ctx.font = `600 22px ${FONT}`; ctx.letterSpacing = '5px';
     const label = `ИТОГИ ${y.year} ГОДА`, tw = ctx.measureText(label).width, jw = 2 * (40 * 11 / 30) + 3;
     const x0 = mid - (jw + 24 + tw) / 2;
-    joycons(ctx, x0, Y + 110, 40);
-    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText(label, x0 + jw + 24, Y + 131);
+    joycons(ctx, x0, Y + 90, 40);
+    ctx.fillStyle = C.muted; ctx.textBaseline = 'middle'; ctx.fillText(label, x0 + jw + 24, Y + 111);
     ctx.letterSpacing = '0px';
 
+    // Главная цифра слева, подпись и доход справа от неё
     const n = y.games.length;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.font = `700 260px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(String(n), mid, Y + 470);
-    ctx.font = `700 52px ${FONT}`; ctx.fillText(`${plural(n, 'игра', 'игры', 'игр')} ${n ? 'заработано' : 'впереди'}`, mid, Y + 550);
-    let yy = Y + 600;
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `700 220px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(String(n), L - 8, Y + 400);
+    const nw = ctx.measureText(String(n)).width;
+    ctx.font = `700 54px ${FONT}`; ctx.fillText(plural(n, 'игра', 'игры', 'игр'), L + nw + 24, Y + 300);
+    ctx.font = `400 32px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText(n ? 'заработано за год' : 'в этом году впереди', L + nw + 24, Y + 346);
     if (o.money) {
-      ctx.font = `700 56px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, mid, yy + 50);
-      ctx.font = `400 26px ${FONT}`; ctx.fillStyle = C.muted; ctx.fillText('доход за год', mid, yy + 90);
-      yy += 130;
+      ctx.font = `700 40px ${FONT}`; ctx.fillStyle = C.plus; ctx.fillText(o.money, L + nw + 24, Y + 400);
     }
-    ctx.textAlign = 'left';
 
-    // Полка: до 8 обложек в две колонки
-    const cols = 2, rows = Math.min(4, Math.max(1, Math.ceil(Math.min(n, 8) / 2))), cg = 20;
-    const cw = (IW - cg) / cols, ch = Math.round(cw * 215 / 460);
-    if (n) coverGrid(ctx, o.covers, n, L, yy + 20, cols, rows, cw, ch, cg);
+    // Обложки: до 4, две колонки
+    let yy = Y + 460;
+    const cg = 20, cw = (IW - cg) / 2, ch = Math.round(cw * 215 / 460), rows = Math.min(2, Math.max(1, Math.ceil(n / 2)));
+    if (n) { coverGrid(ctx, o.covers, n, L, yy, 2, rows, cw, ch, cg); yy += rows * ch + (rows - 1) * cg; }
+    yy += 80;
 
-    // Плитки 2×2 над подвалом
-    const fy = Y + CH - 80, th = 170, gap = 20, tw2 = (IW - gap) / 2, ty0 = fy - 70 - (th * 2 + gap);
-    o.tiles.forEach((t, i) => yearTile(ctx, t, L + (i % 2) * (tw2 + gap), ty0 + Math.floor(i / 2) * (th + gap), tw2, th, 64, 26, 22));
+    sectionLabel(ctx, 'Доход по месяцам', L, yy, 28);
+    monthBars(ctx, y.byMonth, L, yy + 30, IW, 260, col, 22);
+    yy += 30 + 260 + 50;
 
+    // Плитки 2×2
+    const th = 130, gap = 20, tw2 = (IW - gap) / 2;
+    o.tiles.forEach((t, i) => yearTile(ctx, t, L + (i % 2) * (tw2 + gap), yy + Math.floor(i / 2) * (th + gap), tw2, th, 54, 24, 20));
+    yy += Math.ceil(o.tiles.length / 2) * (th + gap) + 24;
+
+    const ach = y.achievements.slice(0, 5);
+    if (ach.length) achChips(ctx, ach, L, yy, IW, 24, col);
+
+    const fy = Y + CH - 64;
     ctx.textBaseline = 'middle';
     ctx.font = `600 26px ${FONT}`;
     const gw = ctx.measureText('Game Goal').width;
