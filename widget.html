@@ -57,6 +57,12 @@ html, body { background: transparent; overflow: hidden; height: 100%; }
   margin-top: 2px; font-size: 16px; font-weight: 600; line-height: 1.2;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* Название в две строки: строка «Награда» уступает ему место, кнопки уходят в угол поверх, как в компактном виде.
+   Высота карточки при этом не меняется */
+.long .head { position: absolute; right: 12px; top: 10px; z-index: 4; height: auto; }
+.long .head .eyebrow { display: none; }
+.long .actions { padding: 2px; border-radius: 15px; background: rgba(15, 16, 22, .94); }
+.long .title { margin-top: 0; }
 .meta { margin-top: 5px; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .meta .price { font-weight: 600; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .buy {
@@ -243,6 +249,15 @@ function applyTint() {
   for (const k of ['g1', 'g2', 't1', 't2', 't3']) c ? root.setProperty('--' + k, c[k]) : root.removeProperty('--' + k);
 }
 
+// Длинное название переносится на вторую строку — тогда карточка переходит в раскладку .long
+function fitTitle() {
+  const card = $('#card'), t = $('#title');
+  card.classList.remove('long');
+  const two = !document.body.classList.contains('compact') && t.offsetHeight > parseFloat(getComputedStyle(t).lineHeight) * 1.5;
+  card.classList.toggle('long', two);
+}
+document.fonts.ready.then(fitTitle);
+
 function render() {
   const g = state.game, earned = earnedSum(), target = state.target, unlocked = isUnlocked();
   $('#card').classList.toggle('unlocked', unlocked);
@@ -257,6 +272,7 @@ function render() {
   $('#badge').hidden = !g;
   $('#badgeUse').setAttribute('href', unlocked ? '#i-star' : '#i-lock');
   $('#title').textContent = g ? g.title : 'Выбери игру-награду';
+  fitTitle();
   const plat = $('#platform');
   plat.hidden = !g || !g.platform;
   if (g) { plat.textContent = g.source === 'nintendo' ? 'eShop' : g.platform; plat.className = 'chip ' + (g.source || ''); }
