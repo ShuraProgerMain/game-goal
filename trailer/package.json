@@ -1,0 +1,16 @@
+{
+  "name": "game-goal-trailer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sounds": "node scripts/sounds.mjs",
+    "studio": "remotion studio src/index.js",
+    "render": "remotion render src/index.js Trailer out/game-goal-trailer.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.541",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "remotion": "4.0.541"
+  }
+}

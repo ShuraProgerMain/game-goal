@@ -1,0 +1,5 @@
+node_modules/
+out/
+out-render.log
+# обложки игр и карточки с ними — чужие картинки, в репозиторий не кладём; звуки собирает npm run sounds
+public/

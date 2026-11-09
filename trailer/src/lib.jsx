@@ -1,0 +1,64 @@
+// Токены и движение трейлера. Цвета — из common.css программы, кривые — из системы «Nintendo UI»:
+// вход — экспонента наружу (быстрый старт, длинное торможение), уход — x⁴ и вдвое быстрее, в видео всё вдвое медленнее UI.
+import React from 'react';
+
+export const FONT = 'Rubik, "Segoe UI", system-ui, sans-serif';
+export const C = {
+  bg: '#08090d', glass: '#0f1016', text: '#eef0f6', muted: '#bdc2db', dim: '#7d8299', plus: '#7be3b4',
+  line: 'rgba(255, 255, 255, .08)', blue: '#0db8e6', red: '#f74754',
+};
+// Фирменные цвета и цвета обложки Hades II (их программа вычисляет сама)
+export const BRAND = { g1: '#4a6beb', g2: '#ed99db', t1: '#385cf2', t2: '#8f70f2', t3: '#f294d1' };
+export const HADES = { g1: '#228764', g2: '#5cb7d6', t1: '#1e7658', t2: '#25938e', t3: '#58b5d5' };
+export const tile = c => `linear-gradient(120deg, ${c.t1}, ${c.t2} 55%, ${c.t3})`;
+
+export const clamp = v => Math.min(1, Math.max(0, v));
+export const outExpo = t => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+export const inQuart = t => t ** 4;
+export const smooth = t => t * t * (3 - 2 * t);
+// Доля пути анимации на кадре f: начало, длительность (кадры), кривая
+export const p = (f, start, dur, e = outExpo) => e(clamp((f - start) / dur));
+export const mix = (a, b, t) => a + (b - a) * t;
+
+export const nf = new Intl.NumberFormat('ru-RU');
+export const rub = v => `${nf.format(Math.round(v))} ₽`;
+
+// Текст, буквы которого поднимаются снизу с шагом step кадров (как в нижней трети Nintendo UI).
+// Слова не разрываются, а длинная строка переносится между словами
+export function Rise({ text, f, start = 0, step = 1.1, dist = 0.5, style }) {
+  let n = 0;
+  return (
+    <span style={style}>
+      {text.split(' ').map((word, wi) => (
+        <React.Fragment key={wi}>
+          {wi > 0 && ' '}
+          <span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+            {[...word].map((ch, i) => {
+              const k = p(f, start + (n++ + wi) * step, 26);
+              return <span key={i} style={{ display: 'inline-block', opacity: k, transform: `translateY(${(1 - k) * dist}em)` }}>{ch}</span>;
+            })}
+          </span>
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+// Половинки Joy-Con: замах наружу (lean, градусы) и расхождение (gap, px)
+export function JoyCons({ h = 320, lean = 0, gap = 0, style }) {
+  const w = h * 84 / 216, r = w * .62;
+  const half = (side) => ({
+    position: 'absolute', top: 0, width: w, height: h, background: side === 'l' ? C.blue : C.red,
+    borderRadius: side === 'l' ? `${r}px 10px 10px ${r}px` : `10px ${r}px ${r}px 10px`,
+    left: side === 'l' ? -w - 4 - gap : 4 + gap,
+    transformOrigin: side === 'l' ? '100% 100%' : '0 100%',
+    transform: `rotate(${side === 'l' ? -lean : lean}deg)`,
+  });
+  const dot = (top) => ({ position: 'absolute', left: w * .26, top, width: w * .48, height: w * .48, borderRadius: '50%', background: 'rgba(0, 0, 0, .28)' });
+  return (
+    <div style={{ position: 'absolute', width: 0, height: h, ...style }}>
+      <div style={half('l')}><div style={dot('22%')} /></div>
+      <div style={half('r')}><div style={dot('62%')} /></div>
+    </div>
+  );
+}
