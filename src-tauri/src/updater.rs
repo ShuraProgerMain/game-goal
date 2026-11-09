@@ -24,13 +24,33 @@ fn newer(latest: &str, current: &str) -> bool {
     parse(latest) > parse(current)
 }
 
+// GitHub временами отвечает 502/503/504 или рвёт соединение посреди файла: до трёх попыток с паузой 2 и 4 с
+async fn get_bytes(client: &reqwest::Client, url: &str, accept: &str) -> Result<(u16, Vec<u8>), String> {
+    let mut last = String::new();
+    for attempt in 0..3u64 {
+        if attempt > 0 {
+            let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(std::time::Duration::from_secs(2 * attempt))).await;
+        }
+        let r = match client.get(url).header("User-Agent", UA).header("Accept", accept).send().await {
+            Ok(r) => r,
+            Err(e) => { last = e.to_string(); continue; }
+        };
+        let status = r.status();
+        if status.is_server_error() { last = format!("HTTP {status}"); continue; }
+        match r.bytes().await {
+            Ok(b) => return Ok((status.as_u16(), b.to_vec())),
+            Err(e) => last = e.to_string(),
+        }
+    }
+    Err(last)
+}
+
 async fn latest() -> Result<serde_json::Value, String> {
     let url = format!("https://api.github.com/repos/{REPO}/releases/latest");
-    let r = reqwest::Client::new().get(url).header("User-Agent", UA).header("Accept", "application/vnd.github+json")
-        .send().await.map_err(|e| e.to_string())?;
-    if r.status().as_u16() == 404 { return Ok(serde_json::Value::Null); }  // выпусков ещё нет
-    if !r.status().is_success() { return Err(format!("GitHub: HTTP {}", r.status())); }
-    serde_json::from_slice(&r.bytes().await.map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+    let (status, body) = get_bytes(&reqwest::Client::new(), &url, "application/vnd.github+json").await.map_err(|e| format!("GitHub: {e}"))?;
+    if status == 404 { return Ok(serde_json::Value::Null); }  // выпусков ещё нет
+    if !(200..300).contains(&status) { return Err(format!("GitHub: HTTP {status}")); }
+    serde_json::from_slice(&body).map_err(|e| e.to_string())
 }
 
 fn asset_url(release: &serde_json::Value, name: &str) -> Option<String> {
@@ -78,9 +98,9 @@ pub async fn update_install(app: tauri::AppHandle) -> Result<(), String> {
     };
     let client = reqwest::Client::new();
     let get = |url: String| { let c = client.clone(); async move {
-        let r = c.get(url).header("User-Agent", UA).send().await.map_err(|e| e.to_string())?;
-        if !r.status().is_success() { return Err(format!("HTTP {}", r.status())); }
-        r.bytes().await.map_err(|e| e.to_string())
+        let (status, body) = get_bytes(&c, &url, "application/octet-stream").await?;
+        if !(200..300).contains(&status) { return Err(format!("HTTP {status}")); }
+        Ok::<_, String>(body)
     } };
     let bytes = get(exe_url).await?;
     let want = String::from_utf8_lossy(&get(sha_url).await?).split_whitespace().next().unwrap_or("").to_lowercase();

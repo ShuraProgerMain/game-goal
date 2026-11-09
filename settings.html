@@ -1049,12 +1049,12 @@ async function renderUpdate(info) {
     pop(b);
     if (u && u.auto) {
       b.disabled = true; b.textContent = 'Скачиваю…';
-      try { await api.installUpdate(); } catch { Sfx.remove(); toast('Не удалось обновить, попробуй позже'); b.disabled = false; renderUpdate(); }
+      try { await api.installUpdate(); } catch (e) { Sfx.remove(); toast(`Не удалось обновить: ${e && e.message || e}. Попробуй ещё раз`); b.disabled = false; renderUpdate(); }
     } else if (u) api.openUrl(u.page);
     else {
       b.disabled = true; b.textContent = 'Проверяю…';
       try { const i = await api.checkUpdate(); if (!i.update) toast('У тебя последняя версия'); renderUpdate(i); }
-      catch { toast('Не удалось проверить обновления'); renderUpdate(); }
+      catch (e) { toast(`Не удалось проверить обновления: ${e && e.message || e}`); renderUpdate(); }
       finally { b.disabled = false; }
     }
   };

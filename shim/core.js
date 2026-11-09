@@ -534,7 +534,8 @@ let update = null, updateCheckedAt = 0;
 async function checkUpdate(force) {
   if (!force && Date.now() - updateCheckedAt < 12 * HOUR) return update;
   updateCheckedAt = Date.now();
-  try { update = await invoke('update_check'); } catch (e) { log('проверка обновлений', e); return update; }
+  // Ручная проверка («Проверить» в настройках) должна сказать об ошибке, а не «у тебя последняя версия»
+  try { update = await invoke('update_check'); } catch (e) { log('проверка обновлений', e); if (force) throw e; return update; }
   // О каждой новой версии — один раз: баннером на виджете или уведомлением
   if (update && state.updateSeen !== update.version) {
     state.updateSeen = update.version; save();
