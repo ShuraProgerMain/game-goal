@@ -51,7 +51,7 @@ input { user-select: text; }
 }
 .btn:hover { background: rgba(255, 255, 255, .10); }
 .btn svg { width: 16px; height: 16px; }
-.btn.primary { background: var(--tile); border-color: transparent; color: #fff; box-shadow: 0 6px 18px rgba(80, 90, 240, .25); }
+.btn.primary { background: var(--tile); border-color: transparent; color: #fff; }
 .btn.primary:hover { filter: brightness(1.08); }
 .btn.small { height: 34px; padding: 0 14px; font-size: 13px; }
 .btn[disabled] { opacity: .4; pointer-events: none; }

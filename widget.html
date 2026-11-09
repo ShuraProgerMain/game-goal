@@ -46,7 +46,7 @@ html, body { background: transparent; overflow: hidden; height: 100%; }
 .unlocked .badge { background: var(--tile); color: #fff; }
 /* Скидка: красная метка в цвет правого Joy-Con */
 .sale { position: absolute; left: 5px; top: 5px; height: 20px; padding: 0 7px; border-radius: 10px; display: grid; place-items: center;
-  background: var(--jc-red); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 2px 8px rgba(247, 71, 84, .45); }
+  background: var(--jc-red); color: #fff; font-size: 11px; font-weight: 700; }
 
 .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 24px; }
 .actions { display: flex; gap: 4px; opacity: 0; transition: opacity var(--t-scroll) var(--ease-scroll); }
@@ -61,7 +61,7 @@ html, body { background: transparent; overflow: hidden; height: 100%; }
 .meta .price { font-weight: 600; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .buy {
   height: 24px; padding: 0 11px; border: 0; border-radius: 12px; background: var(--tile); color: #fff;
-  font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px color-mix(in srgb, var(--t1) 35%, transparent);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
   transition: transform var(--t-scroll) var(--ease-scroll);
 }
 .buy:hover { transform: scale(1.06); }
@@ -439,7 +439,7 @@ $('#card').addEventListener('dblclick', e => { if (!e.target.closest('button, in
 /* ---------- Награда открыта: Joy-Con, замах 3:1 ---------- */
 function celebrate() {
   const u = $('#unlock'), g = state.game;
-  const title = g ? g.title : 'Цель достигнута!';
+  const title = g ? g.title : 'Цель достигнута';
   $('#uEyebrow').textContent = g ? 'Награда открыта' : 'Готово';
   $('#uSub').textContent = g && g.price > 0 ? `после покупки останется ${money(earnedSum() - g.price)}` : `заработано ${money(earnedSum())}`;
   const t = $('#uTitle'); t.replaceChildren(...[...title].map(ch => Object.assign(document.createElement('span'), { textContent: ch })));

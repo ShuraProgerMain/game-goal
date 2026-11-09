@@ -99,7 +99,7 @@
     { id: 'k50', title: 'Полтинник', desc: 'Заработать 50 000 за всё время', test: s => incomeTotal(s) >= 50000 },
     { id: 'k100', title: 'Сотня', desc: 'Заработать 100 000 за всё время', test: s => incomeTotal(s) >= 100000 },
     { id: 'half', title: 'Полпути', desc: 'Набрать половину цели', test: s => s.target > 0 && balance(s) >= s.target / 2 },
-    { id: 'goal', title: 'Цель!', desc: 'Набрать всю сумму цели', test: s => s.target > 0 && balance(s) >= s.target },
+    { id: 'goal', title: 'Цель', desc: 'Набрать всю сумму цели', test: s => s.target > 0 && balance(s) >= s.target },
     { id: 'streak3', title: 'В ритме', desc: 'Доход три недели подряд', test: s => streakWeeks(s) >= 3 },
     { id: 'streak8', title: 'Марафонец', desc: 'Доход восемь недель подряд', test: s => streakWeeks(s) >= 8 },
     { id: 'orders25', title: 'Конвейер', desc: '25 записанных заказов', test: s => s.entries.filter(isIncome).length >= 25 },

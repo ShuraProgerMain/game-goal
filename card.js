@@ -385,7 +385,7 @@
 
     // Справа: надзаголовок, название, диалоговое окно со статистикой
     const R = cx + cw + 60, RW = w - 76 - R;
-    pixelText(ctx, 'НАГРАДА ПОЛУЧЕНА!', R, 98, { px: 3, color: gold });
+    pixelText(ctx, 'НАГРАДА ПОЛУЧЕНА', R, 98, { px: 3, color: gold });
     let y = 140;
     // Название: самый крупный размер букв, при котором оно влезает в две строки
     const m = new OffscreenCanvas(1, 1).getContext('2d'); m.font = `8px ${PIX}`;

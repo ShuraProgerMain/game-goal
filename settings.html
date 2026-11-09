@@ -38,6 +38,9 @@ main { flex: 1; overflow: auto; padding: 16px 18px 24px; }
 .sec { background: var(--glass); border: 1px solid var(--line); border-radius: 22px; padding: 18px; }
 .sec h2 { margin: 0 0 14px; font-size: 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .sec h2 .label { font-size: 12.5px; }
+.sec h2 .h2-side { display: flex; align-items: center; gap: 12px; }
+.sub-hint { margin: -8px 0 12px; }
+.field-hint { display: block; margin-top: 8px; font-size: 12.5px; font-weight: 400; color: var(--dim); }
 .label { font-size: 12.5px; color: var(--dim); font-weight: 500; }
 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: end; }
 .form label { display: grid; gap: 6px; font-size: 12.5px; color: var(--dim); font-weight: 500; }
@@ -110,7 +113,7 @@ main { flex: 1; overflow: auto; padding: 16px 18px 24px; }
 .hint:empty { display: none; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 
-.add { display: grid; grid-template-columns: 110px 140px minmax(0, 1fr) auto; gap: 8px; }
+.add { display: grid; grid-template-columns: 96px 120px minmax(0, 1fr) auto; gap: 8px; }
 .list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; }
 .list li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto 32px; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px 0 12px; border-radius: 12px; transition: background var(--t-scroll); }
 .list li:hover { background: rgba(255, 255, 255, .04); }
@@ -139,7 +142,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; align-items: end; height: 140px; padding-top: 18px; }
 .col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
 .col .b { width: 100%; min-height: 3px; border-radius: 6px 6px 3px 3px; background: var(--tile); opacity: .5; transform-origin: bottom; }
-.col.now .b { opacity: 1; box-shadow: 0 0 14px rgba(143, 112, 242, .45); }
+.col.now .b { opacity: 1; }
 .col .v { position: absolute; top: -2px; font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity var(--t-scroll); }
 .col:hover .v, .col.now .v { opacity: 1; }
 .col .d { font-size: 10.5px; color: var(--dim); height: 13px; }
@@ -164,7 +167,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .a { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, .03); }
 .a .ico { width: 38px; height: 38px; border-radius: 19px; display: grid; place-items: center; background: rgba(255, 255, 255, .06); color: var(--dim); }
 .a .ico svg { width: 17px; height: 17px; }
-.a.got .ico { background: var(--tile); color: #fff; box-shadow: 0 4px 14px rgba(143, 112, 242, .35); }
+.a.got .ico { background: var(--tile); color: #fff; }
 .a .at { font-weight: 600; font-size: 13.5px; }
 .a .ad { font-size: 12px; color: var(--dim); line-height: 1.3; }
 .a:not(.got) .at { color: var(--muted); }
@@ -176,7 +179,6 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .cd-head h2 { margin: 0; }
 #cardCanvas { display: block; max-width: 100%; max-height: 360px; width: auto; height: auto; margin: 0 auto; border-radius: 14px; background: #08090d; }
 .cd-styles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.year-row { margin-top: 14px; align-items: center; gap: 12px; }
 .cd-styles .btn.on { background: var(--tile); border-color: transparent; color: #fff; }
 .pro-tag { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 216, 74, .16); color: #ffd84a; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
 .cd-panel .btn.dim { opacity: .45; }
@@ -243,8 +245,8 @@ li:hover .del, .del:focus-visible { opacity: 1; }
       </div>
       <div class="row"><button class="btn small" id="targetFromGame">Цель = цена игры</button></div>
       <div class="grid2" style="margin-top:14px">
-        <label>Цель на неделю<span class="with-cur"><input class="field num" id="weekGoal" inputmode="decimal" placeholder="не задана"><span class="cur-sym"></span></span></label>
-        <div class="label" style="padding-bottom:10px">Кольцо на виджете, пусто — без цели</div>
+        <label>Цель на неделю<span class="with-cur"><input class="field num" id="weekGoal" inputmode="decimal" placeholder="не задана"><span class="cur-sym"></span></span>
+          <span class="field-hint">Кольцо на виджете, пусто — без цели</span></label>
       </div>
     </section>
 
@@ -258,9 +260,9 @@ li:hover .del, .del:focus-visible { opacity: 1; }
           <div class="note-line" id="curNote" hidden></div>
           <div class="row">
             <button class="btn small primary" id="buyGame" hidden>Купил!</button>
-            <button class="btn small" id="editGame"><svg><use href="#i-edit"/></svg>Цена и название</button>
+            <button class="btn small" id="editGame" title="Изменить цену и название"><svg><use href="#i-edit"/></svg>Изменить</button>
             <button class="btn small" id="storeGame" hidden><svg><use href="#i-out"/></svg>В магазине</button>
-            <button class="btn small" id="clearGame">Убрать</button>
+            <button class="icon-btn" id="clearGame" title="Убрать награду"><svg><use href="#i-x"/></svg></button>
           </div>
           <div class="row buy-confirm" id="buyConfirm" hidden>
             <div class="label" id="buyLabel">Сколько заплатил — эта сумма уйдёт из копилки</div>
@@ -274,7 +276,8 @@ li:hover .del, .del:focus-visible { opacity: 1; }
     </section>
 
     <section class="sec">
-      <h2>Список желаний <span class="label">после покупки следующей наградой станет первая игра отсюда</span></h2>
+      <h2>Список желаний</h2>
+      <div class="label info sub-hint">После покупки следующей наградой станет первая игра отсюда</div>
       <ul class="wish" id="wish"></ul>
       <div class="empty" id="wishEmpty">Пусто. Добавляй игры из поиска кнопкой <b>«В список желаний»</b></div>
     </section>
@@ -324,7 +327,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
       <form class="add" id="addForm" autocomplete="off">
         <input class="field num" id="addAmount" inputmode="decimal" placeholder="Сумма">
         <input class="field" id="addClient" placeholder="Заказчик" list="clientList">
-        <input class="field" id="addNote" placeholder="За что: монтаж шортсов…">
+        <input class="field" id="addNote" placeholder="За что">
         <button class="btn primary" type="submit"><svg><use href="#i-plus"/></svg>Добавить</button>
       </form>
       <datalist id="clientList"></datalist>
@@ -341,12 +344,8 @@ li:hover .del, .del:focus-visible { opacity: 1; }
       <div class="tile"><div class="label">Средний темп</div><div class="v num" id="stPace">—</div><div class="s">в неделю, за последние 8 недель</div></div>
       <div class="tile"><div class="label">Прогноз</div><div class="v" id="stFc">—</div><div class="s" id="stFcSub"></div></div>
     </div>
-    <div class="row year-row" id="yearRow" hidden>
-      <button class="btn small primary" id="yearBtn">Итоги года</button>
-      <span class="label">Картинка за год: сколько игр заработано, заказы, лучший месяц</span>
-    </div>
     <section class="sec">
-      <h2>По неделям <span class="label">последние 12 недель</span></h2>
+      <h2>По неделям <span class="h2-side"><span class="label">последние 12 недель</span><button class="btn small" id="yearBtn" title="Картинка за год: сколько игр заработано, заказы, лучший месяц" hidden>Итоги года</button></span></h2>
       <div class="chart" id="chart"></div>
     </section>
     <section class="sec">
@@ -381,28 +380,28 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         <label class="switch"><input type="checkbox" id="optCompact"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Цвета из обложки</div><div class="d">Обводка и полоса виджета перекрашиваются в цвета игры-награды.</div></div>
+        <div><div>Цвета из обложки</div><div class="d">Обводка и полоса виджета перекрашиваются в цвета игры-награды</div></div>
         <label class="switch"><input type="checkbox" id="optTint"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Итоги недели</div><div class="d">В понедельник уведомление: сколько заработал, сколько до цели, лучший заказчик.</div></div>
+        <div><div>Итоги недели</div><div class="d">В понедельник уведомление: сколько заработал, сколько до цели, лучший заказчик</div></div>
         <label class="switch"><input type="checkbox" id="optRecap"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Быстрый ввод по Ctrl+Alt+G</div><div class="d" id="hotkeyNote">Из любой программы открывает ввод дохода на виджете.</div></div>
+        <div><div>Быстрый ввод по Ctrl+Alt+G</div><div class="d" id="hotkeyNote">Из любой программы открывает ввод дохода на виджете</div></div>
         <label class="switch"><input type="checkbox" id="optHotkey"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Запускать вместе с Windows</div><div class="d">Виджет появится сам после входа в систему.</div></div>
+        <div><div>Запускать вместе с Windows</div><div class="d">Виджет появится сам после входа в систему</div></div>
         <label class="switch"><input type="checkbox" id="optAuto"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Звуки интерфейса</div><div class="d">Короткие сигналы на действия, без музыки.</div></div>
+        <div><div>Звуки интерфейса</div><div class="d">Короткие сигналы на действия, без музыки</div></div>
         <label class="switch"><input type="checkbox" id="optSound"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="row" style="margin-top:16px">
         <button class="btn small" id="showWidget">Показать виджет</button>
-        <button class="btn small" id="resetPos">Вернуть в правый верхний угол</button>
+        <button class="btn small" id="resetPos" title="Вернуть виджет в правый верхний угол экрана">Вернуть в угол</button>
         <button class="btn small" id="openData"><svg><use href="#i-folder"/></svg>Папка с данными</button>
       </div>
     </section>
@@ -414,11 +413,11 @@ li:hover .del, .del:focus-visible { opacity: 1; }
         <label class="switch"><input type="checkbox" id="optStartMenu"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Команда gg в терминале</div><div class="d">gg add 1500 превью @Вася — добавить доход из любого терминала.</div></div>
+        <div><div>Команда gg в терминале</div><div class="d">gg add 1500 превью @Вася — добавить доход из любого терминала</div></div>
         <label class="switch"><input type="checkbox" id="optGg"><span class="tr"></span><span class="kn"></span></label>
       </div>
       <div class="opt">
-        <div><div>Версия <span class="num" id="appVersion"></span></div><div class="d" id="updateNote">Программа сама проверяет обновления раз в 12 часов.</div></div>
+        <div><div>Версия <span class="num" id="appVersion"></span></div><div class="d" id="updateNote">Программа сама проверяет обновления раз в 12 часов</div></div>
         <button class="btn small" id="updateBtn">Проверить</button>
       </div>
       <div class="row" style="margin-top:16px"><button class="btn small" id="unregister">Убрать из системы</button></div>
@@ -473,7 +472,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
     <canvas id="cardCanvas"></canvas>
     <div class="cd-lock" id="cardLock" hidden>Этот стиль — в Game Goal Pro: посмотреть можно, скопировать и сохранить — с Pro.<button class="btn small" id="cardEnterKey">Ввести ключ</button></div>
     <div class="opt">
-      <div><div>Показывать заработанное</div><div class="d">Сумма, которую ты заработал, пока копил на эту игру.</div></div>
+      <div><div>Показывать заработанное</div><div class="d">Сумма, которую ты заработал, пока копил на эту игру</div></div>
       <label class="switch"><input type="checkbox" id="cardMoney"><span class="tr"></span><span class="kn"></span></label>
     </div>
     <div class="row"><button class="btn primary" id="cardCopy">Скопировать</button><button class="btn" id="cardSave">Сохранить</button></div>
@@ -688,7 +687,7 @@ function setSrc(s, sound = true) {
   if (s === 'manual') { pickGame({ source: 'manual', title: '', image: '', storePrice: 0, platform: '', url: '' }, 'manual'); return; }
   $('#q').placeholder = s === 'nintendo' ? 'Название на английском: zelda, mario kart…' : 'Название игры: hollow knight, hades…';
   if ($('#q').value.trim()) runSearch();
-  else { clearResults(); $('#status').className = 'status'; $('#status').textContent = s === 'nintendo' ? 'Игры для Switch и Switch 2 из европейского eShop, цены в евро.' : 'Поиск по Steam, цены в рублях.'; }
+  else { clearResults(); $('#status').className = 'status'; $('#status').textContent = s === 'nintendo' ? 'Игры для Switch и Switch 2 из европейского eShop, цены в евро' : 'Поиск по Steam, цены в рублях'; }
 }
 $('#srcTabs').querySelectorAll('button').forEach(b => b.onclick = () => setSrc(b.dataset.src));
 function showPane(p) { $('#searchPane').hidden = p !== 'search'; $('#confirmPane').hidden = p !== 'confirm'; }
@@ -955,7 +954,7 @@ async function renderHotkey(h) {
   h = h || await api.getHotkey();
   $('#optHotkey').checked = h.on;
   const note = $('#hotkeyNote');
-  note.textContent = h.error || 'Из любой программы открывает ввод дохода на виджете.';
+  note.textContent = h.error || 'Из любой программы открывает ввод дохода на виджете';
   note.classList.toggle('err', !!h.error);
 }
 $('#optHotkey').onchange = async e => { Sfx.tick(); renderHotkey(await api.setHotkey(e.target.checked)); };
@@ -1020,7 +1019,7 @@ if (api.activatePro) {
     const b = e.currentTarget; pop(b); b.disabled = true;
     try {
       await api.activatePro($('#proKey').value);
-      $('#proKey').value = ''; Sfx.unlock(); toast('Pro активирован — спасибо за поддержку!');
+      $('#proKey').value = ''; Sfx.unlock(); toast('Pro активирован — спасибо за поддержку');
     } catch (err) { Sfx.remove(); shake($('#proKey')); toast(`Не получилось: ${err.message}`); }
     finally { b.disabled = false; }
   };
@@ -1038,7 +1037,7 @@ async function renderUpdate(info) {
   const u = info.update, b = $('#updateBtn');
   $('#appVersion').textContent = info.current;
   $('#updateNote').textContent = u ? `Доступна версия ${u.version}.` + (u.auto ? ' Обновление скачается и программа перезапустится сама, данные останутся.' : ' Скачай её со страницы выпуска.')
-    : 'Программа сама проверяет обновления раз в 12 часов.';
+    : 'Программа сама проверяет обновления раз в 12 часов';
   b.textContent = u ? (u.auto ? `Обновить до ${u.version}` : 'Скачать') : 'Проверить';
   b.classList.toggle('primary', !!u);
   b.onclick = async () => {
@@ -1256,7 +1255,7 @@ if (cardOn) {
   $('#yearBtn').onclick = e => { pop(e.currentTarget); Sfx.open(); openYear(); };
 }
 // Кнопка итогов — когда есть хоть один год с доходами или покупками
-function renderYearRow() { $('#yearRow').hidden = !cardOn || !GameCard.years(state).length; }
+function renderYearRow() { $('#yearBtn').hidden = !cardOn || !GameCard.years(state).length; }
 
 /* Esc: сначала форма игры, потом окно */
 addEventListener('keydown', e => {
