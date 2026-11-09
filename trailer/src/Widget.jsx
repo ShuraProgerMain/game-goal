@@ -24,7 +24,7 @@ const Check = () => (
 export function Widget({ f, w, col, scale = 1 }) {
   const pct = Math.min(1, w.earned / w.target);
   const left = Math.max(0, w.target - w.earned);
-  const share = Math.round(1100 / Math.max(1, w.earned) * 100);
+  const share = w.earned < 1 ? '—' : `${Math.round(1100 / w.earned * 100)}%`;
   return (
     <div style={{ width: 412 * scale, height: 208 * scale, position: 'relative' }}>
       <div style={{ width: 412, height: 208, transform: `scale(${scale})`, transformOrigin: '0 0', fontFamily: FONT, color: C.text, position: 'absolute' }}>
@@ -85,9 +85,9 @@ export function Widget({ f, w, col, scale = 1 }) {
                       pathLength="100" strokeDasharray="100" strokeDashoffset={100 - Math.min(1, w.week / w.weekGoal) * 100} />
                   </svg>{rub(w.week)}
                 </Stat>
-                <Stat label="Игра съест">{share}%</Stat>
+                <Stat label="Игра съест">{share}</Stat>
                 <Stat label="Останется" color={C.plus}>{rub(Math.max(0, w.earned - 1100))}</Stat>
-                <div style={{ width: 34, height: 34, borderRadius: 17, background: tile(col), display: 'grid', placeItems: 'center' }}><Plus /></div>
+                <div style={{ width: 34, height: 34, borderRadius: 17, background: tile(col), display: 'grid', placeItems: 'center', transform: `scale(${1 - (w.addPress || 0) * .12})` }}><Plus /></div>
               </div>
             )}
 
@@ -97,10 +97,14 @@ export function Widget({ f, w, col, scale = 1 }) {
                 background: 'rgba(22, 23, 32, .97)', boxShadow: '0 8px 20px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 10,
                 opacity: w.banner.y, transform: `translateY(${(w.banner.y - 1) * 130}%)` }}>
                 <div style={{ width: 30, height: 30, borderRadius: 15, background: tile(col), display: 'grid', placeItems: 'center' }}><Star /></div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.16em', textTransform: 'uppercase', color: C.dim }}>{w.banner.kind}</div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{w.banner.text}</div>
                 </div>
+                {w.banner.action && (
+                  <span style={{ height: 28, padding: '0 12px', borderRadius: 14, background: tile(col), color: '#fff', fontSize: 12, fontWeight: 600,
+                    display: 'inline-flex', alignItems: 'center', transform: `scale(${1 - (w.banner.press || 0) * .1})` }}>{w.banner.action}</span>
+                )}
               </div>
             )}
 
