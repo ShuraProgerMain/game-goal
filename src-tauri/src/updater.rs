@@ -52,11 +52,20 @@ pub async fn update_check(app: tauri::AppHandle) -> Result<Option<Update>, Strin
     let Some(tag) = rel["tag_name"].as_str() else { return Ok(None) };
     let current = app.package_info().version.to_string();
     if !newer(tag, &current) { return Ok(None); }
+    // Выпуск могут опубликовать раньше, чем сборка приложит файлы: пока файлов для этой системы нет, его не видно
+    let needed: &[&str] = if cfg!(windows) {
+        &["GameGoal.exe", "GameGoal.exe.sha256"]
+    } else if cfg!(target_os = "macos") {
+        &["GameGoal-macos.zip"]
+    } else {
+        &["GameGoal-linux-x86_64.AppImage"]
+    };
+    if needed.iter().any(|name| asset_url(&rel, name).is_none()) { return Ok(None); }
     Ok(Some(Update {
         version: tag.trim_start_matches('v').into(),
         notes: rel["body"].as_str().unwrap_or("").into(),
         page: rel["html_url"].as_str().unwrap_or("").into(),
-        auto: updatable(&app) && asset_url(&rel, "GameGoal.exe").is_some(),
+        auto: updatable(&app),
     }))
 }
 
