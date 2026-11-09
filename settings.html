@@ -139,11 +139,14 @@ li:hover .del, .del:focus-visible { opacity: 1; }
 .tile .v { font-size: 24px; font-weight: 600; }
 .tile .v.pos { color: var(--plus); }
 .tile .s { font-size: 12.5px; color: var(--muted); }
-.chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; align-items: end; height: 140px; padding-top: 18px; }
+.chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; align-items: end; height: 140px; padding-top: 24px; }
 .col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
-.col .b { width: 100%; min-height: 3px; border-radius: 6px 6px 3px 3px; background: var(--tile); opacity: .5; transform-origin: bottom; }
-.col.now .b { opacity: 1; }
-.col .v { position: absolute; top: -2px; font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity var(--t-scroll); }
+.col .b { position: relative; width: 100%; min-height: 3px; border-radius: 6px 6px 3px 3px; }
+/* заливка столбика — отдельным слоем: приглушённость не должна гасить число над ним */
+.col .b::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--tile); opacity: .5; transform-origin: bottom; }
+.col.now .b::before { opacity: 1; }
+/* число стоит прямо над своим столбиком, а не у верхней границы графика */
+.col .v { position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translateX(-50%); font-size: 10.5px; color: var(--muted); font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity var(--t-scroll); }
 .col:hover .v, .col.now .v { opacity: 1; }
 .col .d { font-size: 10.5px; color: var(--dim); height: 13px; }
 .clients { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -878,11 +881,11 @@ function renderStats(animate) {
     const col = document.createElement('div');
     col.className = 'col' + (i === weeks.length - 1 ? ' now' : '');
     col.title = `Неделя с ${dateShort(w.start)}: ${money(w.sum)}`;
-    col.innerHTML = `<span class="v num"></span><div class="b"></div><span class="d num"></span>`;
+    col.innerHTML = `<div class="b"><span class="v num"></span></div><span class="d num"></span>`;
     col.querySelector('.v').textContent = w.sum ? nf.format(Math.round(w.sum / 100) / 10) + 'к' : '';
     col.querySelector('.b').style.height = `${Math.max(2, w.sum / max * 100 - 14)}%`;
     col.querySelector('.d').textContent = i % 3 === 2 || i === weeks.length - 1 ? dateShort(w.start) : '';
-    if (animate) anim(col.querySelector('.b'), [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 600, delay: i * 16, easing: EASE_ENTER, fill: 'backwards' });
+    if (animate) anim(col.querySelector('.b'), [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 600, delay: i * 16, easing: EASE_ENTER, fill: 'backwards', pseudoElement: '::before' });
     return col;
   }));
 
