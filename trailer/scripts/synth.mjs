@@ -10,6 +10,21 @@ export const osc = {
   saw: p => 2 * (((p % 1) + 1) % 1) - 1,
 };
 
+// Осциллятор без наложения частот, как OscillatorNode в Web Audio: волна собрана из гармоник ниже 20 кГц.
+// Простые osc.square/triangle на высоких нотах звенят и хрипят, поэтому звуки программы считаются через bl()
+export function bl(type, f, t) {
+  if (type === 'sine') return Math.sin(2 * Math.PI * f * t);
+  const top = Math.floor(20000 / f);
+  let v = 0;
+  for (let n = 1; n <= top; n++) {
+    const s = Math.sin(2 * Math.PI * n * f * t);
+    if (type === 'square') { if (n % 2) v += s / n; }
+    else if (type === 'triangle') { if (n % 2) v += (((n - 1) / 2) % 2 ? -1 : 1) * s / (n * n); }
+    else v += (n % 2 ? 1 : -1) * s / n;
+  }
+  return type === 'square' ? v * 4 / Math.PI : type === 'triangle' ? v * 8 / (Math.PI * Math.PI) : v * 2 / Math.PI;
+}
+
 // Стереобуфер на len секунд
 export function track(len) {
   const n = Math.ceil(len * RATE);

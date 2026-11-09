@@ -3,7 +3,7 @@
 // пролёт, появление, клик мышью, клавиши, щелчок Joy-Con, достижение, блеск и аккорд логотипа.
 import fs from 'node:fs';
 import path from 'node:path';
-import { add, env, midi, noise, normalize, track, voice, writeWav, osc } from './synth.mjs';
+import { add, bl, env, midi, noise, normalize, track, voice, writeWav, osc } from './synth.mjs';
 
 const out = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1')), '..', 'public', 'sfx');
 fs.mkdirSync(out, { recursive: true });
@@ -12,7 +12,7 @@ fs.mkdirSync(out, { recursive: true });
 function tone(buf, f, at, dur, type = 'sine', g = .06) {
   add(buf, at, dur + .02, t => {
     const e = t < .006 ? g * t / .006 : t < dur ? g * Math.pow(.0001 / g, (t - .006) / (dur - .006)) : 0;
-    return osc[type]((f * t) % 1) * e;
+    return bl(type, f, t) * e;
   });
 }
 function make(name, len, fill, peak = .8) {
@@ -27,6 +27,8 @@ make('tick', .1, b => tone(b, 1700, 0, .035, 'sine', .03), .5);
 make('open', .2, b => { tone(b, 740, 0, .06, 'triangle', .05); tone(b, 1110, .05, .09, 'triangle', .05); }, .6);
 make('confirm', .25, b => { tone(b, 988, 0, .07, 'triangle', .06); tone(b, 1480, .065, .14, 'triangle', .06); }, .7);
 make('coin', .3, b => { tone(b, 1047, 0, .06, 'square', .025); tone(b, 1568, .06, .2, 'square', .025); }, .55);
+make('close', .2, b => { tone(b, 1110, 0, .05, 'triangle', .045); tone(b, 740, .045, .08, 'triangle', .045); }, .6);
+make('remove', .25, b => { tone(b, 520, 0, .07, 'triangle', .05); tone(b, 390, .06, .12, 'triangle', .05); }, .6);
 make('unlock', 1.2, b => { [523, 659, 784, 1047].forEach((f, i) => tone(b, f, i * .085, .25, 'triangle', .06)); tone(b, 1568, .34, .7, 'sine', .04); }, .8);
 
 // Пролёт: шум, у которого открывается и закрывается фильтр
