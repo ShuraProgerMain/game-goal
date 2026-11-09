@@ -4,12 +4,25 @@ import React from 'react';
 
 export const FONT = 'Rubik, "Segoe UI", system-ui, sans-serif';
 export const C = {
-  bg: '#08090d', glass: '#0f1016', text: '#eef0f6', muted: '#bdc2db', dim: '#7d8299', plus: '#7be3b4',
+  bg: '#08090d', glass: '#0f1016', text: '#eef0f6', muted: '#bdc2db', dim: '#7d8299', plus: '#7be3b4', minus: '#ff7a85',
   line: 'rgba(255, 255, 255, .08)', blue: '#0db8e6', red: '#f74754',
 };
 // Фирменные цвета и цвета обложки Hades II (их программа вычисляет сама)
 export const BRAND = { g1: '#4a6beb', g2: '#ed99db', t1: '#385cf2', t2: '#8f70f2', t3: '#f294d1' };
 export const HADES = { g1: '#228764', g2: '#5cb7d6', t1: '#1e7658', t2: '#25938e', t3: '#58b5d5' };
+// Цвета других игр — сняты с их обложек так же, как это делает программа (контур g1/g2, плашки t1→t3)
+export const GAMES = {
+  terraria: { name: 'Terraria', img: 'terraria-header.jpg', poster: 'terraria-poster.jpg', price: 380,
+    col: { g1: '#3f9b45', g2: '#8fd3f4', t1: '#2f7d32', t2: '#46a34c', t3: '#6fbfe8' } },
+  elden: { name: 'Elden Ring', img: 'elden-header.jpg', poster: 'elden-poster.jpg', price: 3000,
+    col: { g1: '#a07a2c', g2: '#f0d48a', t1: '#6e5019', t2: '#a87b2a', t3: '#d9b45c' } },
+  peak: { name: 'PEAK', img: 'peak-header.jpg', poster: 'peak-header.jpg', price: 350,
+    col: { g1: '#6f4fd0', g2: '#ffb36b', t1: '#5a3fb0', t2: '#8c5bd6', t3: '#ee9c55' } },
+  lethal: { name: 'Lethal Company', img: 'lethal-header.jpg', poster: 'lethal-poster.jpg', price: 420,
+    col: { g1: '#c01e1e', g2: '#ff8a6a', t1: '#8e1212', t2: '#c62424', t3: '#f05a3c' } },
+  repo: { name: 'R.E.P.O.', img: 'repo-header.jpg', poster: 'repo-poster.jpg', price: 380,
+    col: { g1: '#e0a514', g2: '#6cc4f5', t1: '#b07a08', t2: '#dba11a', t3: '#4aa8e0' } },
+};
 export const tile = c => `linear-gradient(120deg, ${c.t1}, ${c.t2} 55%, ${c.t3})`;
 
 export const clamp = v => Math.min(1, Math.max(0, v));

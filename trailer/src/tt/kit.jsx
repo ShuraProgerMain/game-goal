@@ -173,3 +173,25 @@ export function EndCard({ f, start, lines, cta = 'Ссылка в профиле
     </AbsoluteFill>
   );
 }
+
+// Список записей, как «Записи» в настройках программы: строки выезжают по очереди (at), свежая подсвечена (hl)
+export function Ledger({ f, rows, top = WB + 40, col = HADES, show = 1 }) {
+  if (show <= 0) return null;
+  return (
+    <div style={{ position: 'absolute', left: 90, right: 90, top, padding: '18px 22px', borderRadius: 32, background: 'rgba(18, 19, 26, .96)', border: `2px solid ${C.line}`,
+      boxShadow: '0 30px 60px rgba(0,0,0,.5)', opacity: show, transform: `translateY(${(1 - show) * 40}px)`, fontFamily: FONT }}>
+      <div style={{ padding: '0 8px 10px', fontSize: 26, fontWeight: 600, letterSpacing: '.16em', color: C.dim }}>ЗАПИСИ</div>
+      {rows.filter(r => f >= r.at).map(r => {
+        const k = p(f, r.at, 18);
+        return (
+          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 8px', borderRadius: 18, height: 56 * k, overflow: 'hidden',
+            opacity: k, background: r.hl ? `${col.t2}33` : 'transparent', boxShadow: r.hl ? `inset 0 0 0 2px ${col.t3}` : 'none' }}>
+            <b style={{ minWidth: 150, fontSize: 38, color: C.plus }}>+{rub(r.amount)}</b>
+            <span style={{ flex: 1, fontSize: 34, color: C.text, whiteSpace: 'nowrap' }}>{r.label}</span>
+            <span style={{ fontSize: 28, color: C.dim }}>{r.when}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

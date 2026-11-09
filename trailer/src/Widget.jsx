@@ -27,7 +27,10 @@ export function Widget({ f, w, col, scale = 1 }) {
   const g = w.game || HADES_GAME;
   const pct = Math.min(1, w.earned / w.target);
   const left = Math.max(0, w.target - w.earned);
-  const share = w.earned < 1 ? '—' : `${Math.round(g.price / w.earned * 100)}%`;
+  // Цифры — как в widget.html: «>100%» и «−N ₽» красным, пока на игру не хватает
+  const ratio = w.earned >= 1 ? g.price / w.earned : Infinity;
+  const share = w.earned < 1 ? '—' : ratio > 1 ? '>100%' : `${nf.format(Math.round(ratio * 1000) / 10)}%`;
+  const rest = w.earned - g.price;
   return (
     <div style={{ width: 412 * scale, height: 208 * scale, position: 'relative' }}>
       <div style={{ width: 412, height: 208, transform: `scale(${scale})`, transformOrigin: '0 0', fontFamily: FONT, color: C.text, position: 'absolute' }}>
@@ -85,6 +88,9 @@ export function Widget({ f, w, col, scale = 1 }) {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr)) 34px', gap: 8, alignItems: 'end' }}>
+                {!w.weekGoal ? (
+                  <Stat label="До цели" color={w.unlocked ? C.plus : undefined}>{w.unlocked ? 'готово' : rub(Math.max(0, w.target - w.earned))}</Stat>
+                ) : (
                 <Stat label={`Неделя · из ${nf.format(w.weekGoal)}`} hl={w.hlWeek}>
                   <svg width="16" height="16" viewBox="0 0 20 20" style={{ transform: 'rotate(-90deg)', flex: 'none' }}>
                     <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="3.4" />
@@ -92,8 +98,9 @@ export function Widget({ f, w, col, scale = 1 }) {
                       pathLength="100" strokeDasharray="100" strokeDashoffset={100 - Math.min(1, w.week / w.weekGoal) * 100} />
                   </svg>{rub(w.week)}
                 </Stat>
-                <Stat label="Игра съест" hl={w.hlShare}>{share}</Stat>
-                <Stat label="Останется" color={C.plus} hl={w.hlShare}>{rub(Math.max(0, w.earned - g.price))}</Stat>
+                )}
+                <Stat label="Игра съест" hl={w.hlShare} color={ratio > 1 && w.earned >= 1 ? C.minus : undefined}>{share}</Stat>
+                <Stat label="Останется" color={rest < 0 ? C.minus : C.plus} hl={w.hlShare}>{rest < 0 ? '−' : ''}{rub(Math.abs(rest))}</Stat>
                 <div style={{ width: 34, height: 34, borderRadius: 17, background: tile(col), display: 'grid', placeItems: 'center', transform: `scale(${1 - (w.addPress || 0) * .12})` }}><Plus /></div>
               </div>
             )}
