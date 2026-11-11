@@ -24,11 +24,13 @@ const Check = () => (
 const HADES_GAME = { name: 'Hades II', img: 'hades-header.jpg', price: 1100 };
 
 export function Widget({ f, w, col, scale = 1 }) {
-  const g = w.game || HADES_GAME;
-  const pct = Math.min(1, w.earned / w.target);
+  // game: null — игра ещё не выбрана, как в программе: «Выбери игру-награду» и пустая обложка
+  const empty = w.game === null;
+  const g = empty ? { name: 'Выбери игру-награду', img: null, price: 0 } : (w.game || HADES_GAME);
+  const pct = w.target > 0 ? Math.min(1, w.earned / w.target) : 0;
   const left = Math.max(0, w.target - w.earned);
   // Цифры — как в widget.html: «>100%» и «−N ₽» красным, пока на игру не хватает
-  const ratio = w.earned >= 1 ? g.price / w.earned : Infinity;
+  const ratio = w.earned >= 1 && g.price ? g.price / w.earned : Infinity;
   const share = w.earned < 1 ? '—' : ratio > 1 ? '>100%' : `${nf.format(Math.round(ratio * 1000) / 10)}%`;
   const rest = w.earned - g.price;
   return (
@@ -42,7 +44,7 @@ export function Widget({ f, w, col, scale = 1 }) {
             display: 'grid', gridTemplateRows: 'auto auto auto 1fr', gap: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '124px minmax(0, 1fr)', gap: 14, alignItems: 'center' }}>
               <div style={{ position: 'relative', width: 124, height: 62, borderRadius: 13, overflow: 'hidden', background: tile(col) }}>
-                <Img src={staticFile(`img/${g.img}`)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                {g.img && <Img src={staticFile(`img/${g.img}`)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
                 {w.sale > 0 && (
                   <span style={{ position: 'absolute', left: 5, top: 5, height: 20, padding: '0 7px', borderRadius: 10, display: 'grid', placeItems: 'center',
                     background: C.red, color: '#fff', fontSize: 11.5, fontWeight: 700, transform: `scale(${w.sale})` }}>−{w.salePercent}%</span>
@@ -54,10 +56,10 @@ export function Widget({ f, w, col, scale = 1 }) {
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: C.dim, height: 24, display: 'flex', alignItems: 'center' }}>Награда</div>
                 <div style={{ marginTop: 2, fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>{g.name}</div>
                 <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ height: 22, padding: '0 9px', borderRadius: 11, background: 'rgba(255, 255, 255, .06)', border: `1px solid ${C.line}`, color: C.muted,
+                  {!empty && <span style={{ height: 22, padding: '0 9px', borderRadius: 11, background: 'rgba(255, 255, 255, .06)', border: `1px solid ${C.line}`, color: C.muted,
                     fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 6, boxSizing: 'border-box' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: 3, background: col.t3 }} />Steam</span>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: C.muted }}>{rub(g.price)}</span>
+                    <span style={{ width: 6, height: 6, borderRadius: 3, background: col.t3 }} />Steam</span>}
+                  <span style={{ fontWeight: 600, fontSize: 13, color: C.muted }}>{empty ? '' : rub(g.price)}</span>
                   {w.unlocked && (
                     <span style={{ height: 24, padding: '0 11px', borderRadius: 12, background: tile(col), color: '#fff', fontSize: 12, fontWeight: 600,
                       display: 'inline-flex', alignItems: 'center', transform: `scale(${1 - (w.buyPress || 0) * .1})` }}>Купил!</span>
@@ -70,7 +72,7 @@ export function Widget({ f, w, col, scale = 1 }) {
               <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-.01em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {rub(w.earned)} <small style={{ fontSize: 13, fontWeight: 500, color: C.muted, letterSpacing: 0 }}>из {rub(w.target)}</small>
               </div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>{Math.floor(pct * 100)}%</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>{Math.floor(pct * 100)}%{w.forecast && <small style={{ fontSize: 11, fontWeight: 500, color: C.dim, marginLeft: 4 }}>{w.forecast}</small>}</div>
             </div>
             <div style={{ position: 'relative', marginTop: -2, height: 9, borderRadius: 99, background: 'rgba(255, 255, 255, .07)', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: 99, background: tile(col), transform: `translateX(${(pct - 1) * 100}%)` }}>
