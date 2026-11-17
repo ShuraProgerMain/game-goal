@@ -267,7 +267,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
             <button class="btn small primary" id="buyGame" hidden>Купил!</button>
             <button class="btn small" id="editGame" title="Изменить цену и название"><svg><use href="#i-edit"/></svg>Изменить</button>
             <button class="btn small" id="storeGame" hidden><svg><use href="#i-out"/></svg>В магазине</button>
-            <button class="icon-btn" id="clearGame" title="Убрать награду"><svg><use href="#i-x"/></svg></button>
+            <button class="btn small" id="clearGame" title="Убрать награду обратно в список желаний — оттуда её можно снова сделать наградой">В список желаний</button>
           </div>
           <div class="row buy-confirm" id="buyConfirm" hidden>
             <div class="label" id="buyLabel">Сколько заплатил — эта сумма уйдёт из копилки</div>
@@ -277,7 +277,7 @@ li:hover .del, .del:focus-visible { opacity: 1; }
           </div>
         </div>
       </div>
-      <div class="empty" id="noGame">Награда не выбрана. Найди игру ниже и нажми <b>«Сделать наградой»</b></div>
+      <div class="empty" id="noGame">Награда не выбрана. Выбери игру из списка желаний или найди ниже и нажми <b>«Сделать наградой»</b></div>
     </section>
 
     <section class="sec">
@@ -651,9 +651,11 @@ $('#buyOk').onclick = async () => {
 };
 $('#editGame').onclick = () => { Sfx.open(); pickGame({ ...state.game, storePrice: 0 }, 'edit'); $('#confirmPane').scrollIntoView({ block: 'center' }); };
 $('#storeGame').onclick = () => api.openUrl(state.game.url);
+// Награда не удаляется, а возвращается в начало списка желаний: оттуда её можно снова сделать наградой
 $('#clearGame').onclick = () => {
-  const old = state.game; Sfx.remove(); api.setState({ game: null });
-  toast('Награда убрана', 'Вернуть', () => { api.setState({ game: old }); Sfx.confirm(); });
+  const old = state.game, oldWish = state.wishlist;
+  Sfx.remove(); api.setState({ game: null, wishlist: [old, ...oldWish.filter(w => w.title !== old.title)] });
+  toast(`«${old.title}» в списке желаний`, 'Вернуть', () => { api.setState({ game: old, wishlist: oldWish }); Sfx.confirm(); });
 };
 
 /* ---------- Список желаний ---------- */
@@ -661,16 +663,19 @@ function renderWish() {
   $('#wish').replaceChildren(...state.wishlist.map((g, i) => {
     const li = document.createElement('li');
     li.innerHTML = `<div class="thumb"><img alt="" hidden></div><div style="min-width:0"><div class="wt"></div><div class="wm"><span class="num"></span></div></div>
-      <button class="btn small" title="Сделать текущей наградой"><svg><use href="#i-star"/></svg>Наградой</button><button class="del" title="Убрать из списка"><svg><use href="#i-x"/></svg></button>`;
+      <button class="btn small" title="Сделать текущей наградой — прежняя награда вернётся в список"><svg><use href="#i-star"/></svg>Сделать наградой</button><button class="del" title="Убрать из списка"><svg><use href="#i-x"/></svg></button>`;
     setImg(li.querySelector('img'), g.image, g.fallback);
     li.querySelector('.wt').textContent = g.title;
     li.querySelector('.wm span').textContent = g.price > 0 ? money(g.price) : 'цена не указана';
     if (g.sale && g.sale.percent > 0) li.querySelector('.wm').append(Object.assign(document.createElement('span'), { className: 'sale-tag', textContent: `−${g.sale.percent}%` }));
     li.querySelector('.btn').onclick = () => {
       // Выбранная игра становится наградой, прежняя награда возвращается в начало списка
-      const wish = state.wishlist.filter((_, n) => n !== i);
-      if (state.game) wish.unshift(state.game);
+      const prev = state.game, oldWish = state.wishlist;
+      const wish = oldWish.filter((_, n) => n !== i);
+      if (prev) wish.unshift(prev);
       Sfx.confirm(); api.setState({ game: g, wishlist: wish });
+      toast(prev ? `Награда — «${g.title}», «${prev.title}» в списке` : `Награда — «${g.title}»`, 'Вернуть', () => { api.setState({ game: prev, wishlist: oldWish }); Sfx.confirm(); });
+      $('#curSec').scrollIntoView({ block: 'start', behavior: 'smooth' });
     };
     li.querySelector('.del').onclick = () => {
       Sfx.remove(); api.setState({ wishlist: state.wishlist.filter((_, n) => n !== i) });
