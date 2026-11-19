@@ -287,7 +287,6 @@ function buyGame(paid) {
   if (price > 0) state.entries.push({ id: Date.now(), amount: -price, note: `Покупка: ${g.title}`, date: now, kind: 'purchase' });
   state.shelf.unshift({ ...g, boughtAt: now, paid: price, onSale: !!(g.sale && g.sale.percent > 0) && price < g.price });
   state.game = state.wishlist.shift() || null;
-  if (state.game) state.game.chosenAt = now;
   changed();
   if (state.game) setTimeout(() => checkSales(true), 1000);
   return state.game;
@@ -663,8 +662,6 @@ const api = {
     const newGame = patch && 'game' in patch && patch.game && patch.game.url !== state.game?.url;
     const newWish = patch && Array.isArray(patch.wishlist) && patch.wishlist.length > state.wishlist.length;
     for (const k of allowed) if (patch && k in patch) state[k] = patch[k];
-    // Когда игра стала наградой — для карточки «дней от выбора до покупки»
-    if (newGame) state.game.chosenAt = new Date().toISOString();
     changed();
     if (newGame || newWish) setTimeout(() => checkSales(true), 500);
     return clone(state);

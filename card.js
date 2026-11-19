@@ -13,13 +13,14 @@
   const C = { text: '#eef0f6', muted: '#bdc2db', dim: '#7d8299', plus: '#7be3b4', blue: '#0db8e6', red: '#f74754' };
   const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 10 || h >= 20) ? b : c; };
 
-  // Статистика покупки: от выбора награды (или прошлой покупки, или первого дохода) до самой покупки
+  // Статистика покупки: всё, что пришло в копилку от прошлой покупки (или от первого дохода) до этой.
+  // Дату выбора награды не берём: игру могли переназначить незадолго до покупки, а копил человек и раньше
   function stats(state, item) {
     const end = Date.parse(item.boughtAt);
     const older = (state.shelf || []).map(g => Date.parse(g.boughtAt)).filter(t => t < end).sort((a, b) => b - a)[0];
     const incomes = state.entries.filter(Logic.isIncome);
     const first = incomes.map(e => Date.parse(e.date)).sort((a, b) => a - b)[0];
-    const start = Date.parse(item.chosenAt) || older || first || end;
+    const start = older || first || end;
     const inside = incomes.filter(e => { const t = Date.parse(e.date); return t >= start && t <= end; });
     return {
       days: Math.max(1, Math.ceil((end - start) / Logic.DAY)),
@@ -541,7 +542,7 @@
   // Плитки из статистики: дни всегда, заказы — если были, недели подряд — от двух
   function tiles(s) {
     // short — для стилей, где цифры идут одной строкой
-    const t = [{ n: String(s.days), u: plural(s.days, 'день', 'дня', 'дней'), l: 'от выбора до покупки' }];
+    const t = [{ n: String(s.days), u: plural(s.days, 'день', 'дня', 'дней'), l: 'копил до покупки' }];
     if (s.orders) t.push({ n: String(s.orders), u: plural(s.orders, 'заказ', 'заказа', 'заказов'), l: 'вложено в копилку' });
     if (s.streak >= 2) t.push({ n: String(s.streak), u: plural(s.streak, 'неделя', 'недели', 'недель'), l: 'подряд с доходом', short: 'подряд' });
     return t;
