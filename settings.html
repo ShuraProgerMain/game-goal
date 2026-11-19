@@ -726,7 +726,8 @@ async function runSearch() {
       c.className = 'card'; c.type = 'button';
       c.innerHTML = `<img alt="" loading="lazy"><div class="t"></div><div class="m"><span></span><b class="num"></b></div>`;
       const img = c.querySelector('img');
-      img.src = g.image;
+      if (g.image) img.src = g.image;
+      else img.replaceWith(Object.assign(document.createElement('div'), { className: 'noimg' }));
       img.onerror = () => {
         if (g.fallback && img.src !== g.fallback) { g.image = g.fallback; img.src = g.fallback; }
         else img.replaceWith(Object.assign(document.createElement('div'), { className: 'noimg' }));

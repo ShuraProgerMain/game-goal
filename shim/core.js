@@ -316,10 +316,9 @@ async function storePrice(g) {
     const p = new URLSearchParams([['q', '*'], ['fq', `fs_id:${id}`], ['wt', 'json'],
       ['fl', 'price_regular_f,price_discounted_f,price_has_discount_b,price_discount_percentage_f']]);
     const d = (await getJson('https://searching.nintendo-europe.com/en/select?' + p)).response?.docs?.[0];
-    if (!d || !d.price_regular_f) return null;
-    const final = d.price_has_discount_b && d.price_discounted_f ? d.price_discounted_f : d.price_regular_f;
-    const percent = d.price_has_discount_b ? Math.round(d.price_discount_percentage_f || (1 - final / d.price_regular_f) * 100) : 0;
-    return { percent, final, regular: d.price_regular_f, currency: 'EUR' };
+    const pr = d && eshopPrice(d);
+    if (!pr) return null;
+    return { ...pr, currency: 'EUR' };
   }
   return null;
 }
@@ -395,18 +394,31 @@ async function searchSteam(q) {
     url: `https://store.steampowered.com/app/${it.id}/`,
   }));
 }
+// Цена из записи eShop. У части игр (часто у новых для Switch 2) во время скидки обычная цена пустая (0),
+// а есть только цена со скидкой и процент — тогда обычную восстанавливаем из них
+function eshopPrice(d) {
+  const sale = d.price_has_discount_b && d.price_discounted_f > 0;
+  const pct = sale ? d.price_discount_percentage_f || 0 : 0;
+  let regular = d.price_regular_f || 0;
+  if (!regular && sale) regular = pct > 0 && pct < 100 ? Math.round(d.price_discounted_f / (1 - pct / 100) * 100) / 100 : d.price_discounted_f;
+  if (!regular) return null;
+  const final = sale ? d.price_discounted_f : regular;
+  return { final, regular, percent: sale ? Math.round(pct || (1 - final / regular) * 100) : 0 };
+}
 async function searchNintendo(q) {
   const p = new URLSearchParams([
     ['q', q], ['fq', 'type:GAME'], ['fq', 'system_type:nintendoswitch*'], ['rows', '18'], ['wt', 'json'],
-    ['fl', 'title,image_url,image_url_h2x1_s,price_regular_f,price_discounted_f,system_names_txt,url'],
+    ['fl', 'title,image_url,image_url_h2x1_s,image_url_h16x9_s,image_url_sq_s,price_regular_f,price_discounted_f,price_has_discount_b,price_discount_percentage_f,system_names_txt,url'],
   ]);
   const data = await getJson('https://searching.nintendo-europe.com/en/select?' + p);
-  return (data.response?.docs || []).filter(d => d.image_url_h2x1_s || d.image_url).map(d => ({
+  // Картинки: у игр для Switch 1 — широкая 2:1 и квадратная, у игр для Switch 2 — 16:9 и квадратная в других полях.
+  // Игры без картинки тоже показываем: в списке будет значок вместо обложки
+  return (data.response?.docs || []).map(d => ({
     source: 'nintendo',
     title: d.title,
-    image: d.image_url_h2x1_s || d.image_url,
-    fallback: d.image_url || '',
-    storePrice: d.price_discounted_f || d.price_regular_f || 0,
+    image: d.image_url_h2x1_s || d.image_url_h16x9_s || d.image_url || d.image_url_sq_s || '',
+    fallback: d.image_url || d.image_url_sq_s || '',
+    storePrice: eshopPrice(d)?.final || 0,
     storeCurrency: 'EUR',
     platform: (d.system_names_txt || []).join(', ') || 'Nintendo Switch',
     url: d.url ? 'https://www.nintendo.com' + d.url : '',
